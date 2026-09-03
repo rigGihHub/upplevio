@@ -26,6 +26,8 @@ class Event:
     country: str
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    venue_latitude: Optional[float] = None
+    venue_longitude: Optional[float] = None
     image_url: Optional[str] = None
     official_url: Optional[str] = None
     ticket_url: Optional[str] = None
@@ -39,5 +41,9 @@ class Event:
     description: str = ""
     tags: List[str] = field(default_factory=list)
     is_demo: bool = False
-    data_quality: str = "verified"  # verified | partial | review
+    data_quality: str = "source_verified"  # source_verified | multi_source | partial | review
     quality_notes: List[str] = field(default_factory=list)
+    price_min: Optional[float] = None
+    price_max: Optional[float] = None
+    currency: str = "SEK"
+    price_status: str = "unknown"  # unknown | known | free

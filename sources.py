@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import json
+import hashlib
 import requests
 from models import Event, SourceRecord
 from taxonomy import classify
@@ -38,46 +39,85 @@ def demo_events():
         ))
     return events
 
-def ticketmaster_events(api_key: str, country_code="SE", size=120):
+def ticketmaster_events(api_key: str, country_code="SE", page_size=200, max_pages=5):
+    """Fetch Ticketmaster pages conservatively and return events + import metadata."""
     if not api_key:
-        return []
+        return [], {"pages_fetched": 0, "page_size": page_size, "total_pages": 0, "total_elements": 0, "truncated": False}
     url = "https://app.ticketmaster.com/discovery/v2/events.json"
-    params = {"apikey": api_key,"countryCode": country_code,"size": min(size, 200),"sort": "date,asc"}
-    r = requests.get(url, params=params, timeout=20)
-    r.raise_for_status()
-    raw = r.json().get("_embedded", {}).get("events", [])
+    page_size = min(max(int(page_size), 1), 200)
+    max_pages = min(max(int(max_pages), 1), 20)
     result = []
-    for x in raw:
-        dates = x.get("dates", {})
-        start = dates.get("start", {})
-        venue = ((x.get("_embedded") or {}).get("venues") or [{}])[0]
-        classifications = x.get("classifications") or [{}]
-        c0 = classifications[0] if classifications else {}
-        segment = (c0.get("segment") or {}).get("name") or "Evenemang"
-        genre = (c0.get("genre") or {}).get("name") or segment
-        event_type = "Konsert" if segment.lower() == "music" else "Evenemang"
-        images = x.get("images") or []
-        image_url = sorted(images, key=lambda im: im.get("width", 0), reverse=True)[0].get("url") if images else None
-        city = (venue.get("city") or {}).get("name") or ""
-        region = (venue.get("state") or {}).get("name") or ""
-        location = venue.get("location") or {}
-        ext_id = x.get("id") or ""
-        result.append(Event(
-            id=f"tm-{ext_id}", title=x.get("name") or "Okänt evenemang",
-            event_type=event_type, category=genre,
-            start_date=start.get("localDate") or "", end_date=None,start_time=start.get("localTime"),
-            venue=venue.get("name") or "",city=city,region=region,
-            country=((venue.get("country") or {}).get("name") or "Sverige"),
-            latitude=_float(location.get("latitude")), longitude=_float(location.get("longitude")),
-            image_url=image_url,official_url=x.get("url"),ticket_url=x.get("url"),
-            status=((dates.get("status") or {}).get("code") or "unknown"),
-            source_names=["Ticketmaster"],source_count=1,
-            source_records=[SourceRecord(source="Ticketmaster", external_id=ext_id, source_url=x.get("url"), fetched_at=_now_iso(), raw_title=x.get("name"))],
-            verified_at=_now_iso(),created_at=_now_iso(),updated_at=_now_iso(),
-            description=(x.get("info") or x.get("pleaseNote") or ""),
-            tags=[segment,genre],is_demo=False,data_quality="verified"
-        ))
-    return result
+    total_pages = None
+    total_elements = None
+    pages_fetched = 0
+    for page in range(max_pages):
+        params = {"apikey": api_key,"countryCode": country_code,"size": page_size,"page": page,"sort": "date,asc"}
+        r = requests.get(url, params=params, timeout=20)
+        r.raise_for_status()
+        payload = r.json()
+        raw = payload.get("_embedded", {}).get("events", [])
+        page_meta = payload.get("page") or {}
+        if total_pages is None:
+            total_pages = page_meta.get("totalPages")
+            total_elements = page_meta.get("totalElements")
+        pages_fetched += 1
+        for x in raw:
+            dates = x.get("dates", {})
+            start = dates.get("start", {})
+            venue = ((x.get("_embedded") or {}).get("venues") or [{}])[0]
+            classifications = x.get("classifications") or [{}]
+            c0 = classifications[0] if classifications else {}
+            segment = (c0.get("segment") or {}).get("name") or "Evenemang"
+            genre = (c0.get("genre") or {}).get("name") or segment
+            event_type = "Konsert" if segment.lower() == "music" else "Evenemang"
+            price_ranges = x.get("priceRanges") or []
+            price_min = price_max = None
+            currency = "SEK"
+            price_status = "unknown"
+            if price_ranges:
+                pr = price_ranges[0] or {}
+                price_min = _float(pr.get("min"))
+                price_max = _float(pr.get("max"))
+                currency = pr.get("currency") or "SEK"
+                if price_min is not None:
+                    price_status = "free" if price_min <= 0 and (price_max is None or price_max <= 0) else "known"
+            images = x.get("images") or []
+            image_url = sorted(images, key=lambda im: im.get("width", 0), reverse=True)[0].get("url") if images else None
+            city = (venue.get("city") or {}).get("name") or ""
+            region = (venue.get("state") or {}).get("name") or ""
+            location = venue.get("location") or {}
+            ext_id = x.get("id") or ""
+            result.append(Event(
+                id=f"tm-{ext_id}", title=x.get("name") or "Okänt evenemang",
+                event_type=event_type, category=genre,
+                start_date=start.get("localDate") or "", end_date=None,start_time=start.get("localTime"),
+                venue=venue.get("name") or "",city=city,region=region,
+                country=((venue.get("country") or {}).get("name") or "Sverige"),
+                latitude=_float(location.get("latitude")), longitude=_float(location.get("longitude")),
+                venue_latitude=_float(location.get("latitude")), venue_longitude=_float(location.get("longitude")),
+                image_url=image_url,official_url=x.get("url"),ticket_url=x.get("url"),
+                status=((dates.get("status") or {}).get("code") or "unknown"),
+                source_names=["Ticketmaster"],source_count=1,
+                source_records=[SourceRecord(source="Ticketmaster", external_id=ext_id, source_url=x.get("url"), fetched_at=_now_iso(), raw_title=x.get("name"))],
+                verified_at=_now_iso(),created_at=_now_iso(),updated_at=_now_iso(),
+                description=(x.get("info") or x.get("pleaseNote") or ""),
+                tags=[segment,genre],is_demo=False,data_quality="verified",
+                price_min=price_min, price_max=price_max, currency=currency, price_status=price_status
+            ))
+        if not raw:
+            break
+        if total_pages is not None and page + 1 >= int(total_pages):
+            break
+        if len(raw) < page_size and total_pages is None:
+            break
+    truncated = bool(total_pages is not None and pages_fetched < int(total_pages))
+    return result, {
+        "pages_fetched": pages_fetched,
+        "page_size": page_size,
+        "total_pages": int(total_pages or pages_fetched),
+        "total_elements": int(total_elements or len(result)),
+        "truncated": truncated,
+    }
 
 def _float(v):
     try:
@@ -119,7 +159,7 @@ def _flatten_jsonld_graph(payload):
             return payload[key]
     return [payload]
 
-def visitsweden_events(limit=100, offset=0):
+def _visitsweden_page(limit=100, offset=0):
     """
     Public Visit Sweden search. No key required.
     Adapter is deliberately defensive because linked-data payloads may contain
@@ -174,26 +214,58 @@ def visitsweden_events(limit=100, offset=0):
         elif "festival" in lower:
             type_text = "Festival"
         events.append(Event(
-            id=f"vs-{abs(hash(ext_id))}", title=title,event_type=type_text,category="Okategoriserat",
+            id=f"vs-{hashlib.sha1(ext_id.encode("utf-8")).hexdigest()[:20]}", title=title,event_type=type_text,category="Okategoriserat",
             start_date=start_date,end_date=str(end)[:10] if end else None,start_time=None,
             venue=venue,city=city,region=region,country="Sverige",
-            latitude=lat,longitude=lon,image_url=None,official_url=url_value,ticket_url=None,
+            latitude=lat,longitude=lon,venue_latitude=lat,venue_longitude=lon,image_url=None,official_url=url_value,ticket_url=None,
             status="confirmed",source_names=["Visit Sweden"],source_count=1,
             source_records=[SourceRecord(source="Visit Sweden",external_id=ext_id,source_url=url_value,fetched_at=_now_iso(),raw_title=title)],
             verified_at=_now_iso(),created_at=_now_iso(),updated_at=_now_iso(),
             description=desc,tags=[],is_demo=False,
             data_quality="partial",quality_notes=["Kategori normaliseras konservativt från Visit Sweden-data"]
         ))
-    return events
+    return events, len(candidates)
 
-def load_events(api_key=None, include_visitsweden=True, experimental_official_keys=None, experimental_collector_keys=None, experimental_entertainment_keys=None):
+
+def visitsweden_events(page_size=100, max_pages=5):
+    """Fetch several Visit Sweden pages and stop honestly at a safety limit."""
+    page_size = min(max(int(page_size), 1), 100)
+    max_pages = min(max(int(max_pages), 1), 20)
+    events = []
+    pages_fetched = 0
+    full_last_page = False
+    for page in range(max_pages):
+        offset = page * page_size
+        batch, raw_count = _visitsweden_page(limit=page_size, offset=offset)
+        pages_fetched += 1
+        events.extend(batch)
+        # Stop based on raw records, not parsed/usable records. Otherwise a malformed
+        # item could make us stop before later valid pages have been inspected.
+        if raw_count < page_size:
+            full_last_page = False
+            break
+        full_last_page = True
+    truncated = bool(full_last_page and pages_fetched >= max_pages)
+    return events, {
+        "pages_fetched": pages_fetched,
+        "page_size": page_size,
+        "total_pages": None,
+        "total_elements": None,
+        "truncated": truncated,
+    }
+
+def load_events(api_key=None, include_visitsweden=True, include_conventum=True, include_visitorebro_editorial=True, experimental_official_keys=None, experimental_collector_keys=None, experimental_entertainment_keys=None, include_demo=False):
     events = []
     source_health = []
     if api_key:
         try:
-            tm = ticketmaster_events(api_key)
+            tm, meta = ticketmaster_events(api_key)
             events.extend(tm)
-            source_health.append(("Ticketmaster","OK",len(tm),None))
+            status = "Delvis" if meta["truncated"] else "OK"
+            comment = f'{meta["pages_fetched"]} sida/sidor · API-total {meta["total_elements"]}'
+            if meta["truncated"]:
+                comment += f' · import stoppad vid säkerhetsgräns ({meta["pages_fetched"] * meta["page_size"]} poster)'
+            source_health.append(("Ticketmaster",status,len(tm),comment))
         except Exception as exc:
             source_health.append(("Ticketmaster","Fel",0,str(exc)))
     else:
@@ -201,11 +273,33 @@ def load_events(api_key=None, include_visitsweden=True, experimental_official_ke
 
     if include_visitsweden:
         try:
-            vs = visitsweden_events(limit=100)
+            vs, meta = visitsweden_events()
             events.extend(vs)
-            source_health.append(("Visit Sweden","OK",len(vs),None))
+            status = "Delvis" if meta["truncated"] else "OK"
+            comment = f'{meta["pages_fetched"]} sida/sidor'
+            if meta["truncated"]:
+                comment += f' · import stoppad vid säkerhetsgräns ({meta["pages_fetched"] * meta["page_size"]} poster)'
+            source_health.append(("Visit Sweden",status,len(vs),comment))
         except Exception as exc:
             source_health.append(("Visit Sweden","Fel",0,str(exc)))
+
+    if include_conventum:
+        try:
+            from official_sources import conventum_events
+            cv = conventum_events()
+            events.extend(cv)
+            source_health.append(("Conventum", "OK", len(cv), "Officiell Örebro-kalender · lokal pilotkälla"))
+        except Exception as exc:
+            source_health.append(("Conventum", "Fel", 0, str(exc)))
+
+    if include_visitorebro_editorial:
+        try:
+            from official_sources import visitorebro_editorial_events
+            vo = visitorebro_editorial_events()
+            events.extend(vo)
+            source_health.append(("Visit Örebro", "OK", len(vo), "Officiella redaktionella eventlistor · kompletterande lokal discovery-källa"))
+        except Exception as exc:
+            source_health.append(("Visit Örebro", "Fel", 0, str(exc)))
 
     # Keep demo rows until real-source coverage is sufficient, always clearly marked.
     if experimental_official_keys:
@@ -241,6 +335,10 @@ def load_events(api_key=None, include_visitsweden=True, experimental_official_ke
         e.category = cls.category
         e.tags = sorted(set(e.tags + cls.tags))
 
-    events.extend(demo_events())
-    source_health.append(("Demo","OK",10,"Endast UX-testdata"))
+    # Production-safe default: fictitious demo events must never leak into normal results.
+    # They can be explicitly enabled for local UX testing.
+    if include_demo:
+        demos = demo_events()
+        events.extend(demos)
+        source_health.append(("Demo", "TESTLÄGE", len(demos), "Fiktiv UX-testdata – visas endast när demoläge uttryckligen aktiverats"))
     return events, source_health

@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 from models import Event, SourceRecord
 from taxonomy import classify
+import hashlib
 
 def _now():
     return datetime.now(timezone.utc).isoformat()
@@ -62,7 +63,7 @@ def kortcentralen_events():
             href="https://kortcentralen.se"+href
         ext=href or f"{title}-{start}"
         events.append(Event(
-            id=f"kortcentralen-{abs(hash(ext))}",title=title,event_type=cls.event_type,
+            id=f"kortcentralen-{hashlib.sha1(str(ext).encode("utf-8")).hexdigest()[:20]}",title=title,event_type=cls.event_type,
             category=cls.category,start_date=start,end_date=end,start_time=None,
             venue="",city=city,region="",country="Sverige",official_url=href,
             status="confirmed",source_names=["Kortcentralen"],source_count=1,
@@ -103,7 +104,7 @@ def tickster_collector_events():
                 city=candidate;break
         ext=f"{line}-{start}-{city}"
         events.append(Event(
-            id=f"tickster-collector-{abs(hash(ext))}",title=line,event_type=cls.event_type,
+            id=f"tickster-collector-{hashlib.sha1(str(ext).encode("utf-8")).hexdigest()[:20]}",title=line,event_type=cls.event_type,
             category=cls.category,start_date=start,end_date=end,start_time=None,
             venue="",city=city,region="",country="Sverige",official_url=final_url,
             ticket_url=final_url,status="confirmed",source_names=["Tickster"],source_count=1,

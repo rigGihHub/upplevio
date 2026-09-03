@@ -3,6 +3,7 @@ import re, requests
 from bs4 import BeautifulSoup
 from models import Event, SourceRecord
 from taxonomy import classify
+import hashlib
 
 MONTHS={"jan":1,"feb":2,"mar":3,"apr":4,"maj":5,"jun":6,"jul":7,"aug":8,"sep":9,"okt":10,"nov":11,"dec":12}
 def _now(): return datetime.now(timezone.utc).isoformat()
@@ -32,7 +33,7 @@ def showtic_standup_events():
         href=link.get("href") if link else None
         if href and href.startswith("/"): href="https://showtic.se"+href
         ext=href or f"{title}-{start}-{city}"
-        out.append(Event(id=f"showtic-{abs(hash(ext))}",title=title,event_type=cls.event_type,category=cls.category,start_date=start,end_date=start,start_time=None,venue="",city=city,region="",country="Sverige",official_url=href,ticket_url=href,status="confirmed",source_names=["Showtic"],source_count=1,source_records=[SourceRecord(source="Showtic",external_id=ext,source_url=href or url,fetched_at=_now(),raw_title=title)],verified_at=_now(),created_at=_now(),updated_at=_now(),description=text,tags=cls.tags,is_demo=False,data_quality="partial",quality_notes=["Showtic-import; experimentell parser"]))
+        out.append(Event(id=f"showtic-{hashlib.sha1(str(ext).encode("utf-8")).hexdigest()[:20]}",title=title,event_type=cls.event_type,category=cls.category,start_date=start,end_date=start,start_time=None,venue="",city=city,region="",country="Sverige",official_url=href,ticket_url=href,status="confirmed",source_names=["Showtic"],source_count=1,source_records=[SourceRecord(source="Showtic",external_id=ext,source_url=href or url,fetched_at=_now(),raw_title=title)],verified_at=_now(),created_at=_now(),updated_at=_now(),description=text,tags=cls.tags,is_demo=False,data_quality="partial",quality_notes=["Showtic-import; experimentell parser"]))
     uniq={}
     for e in out: uniq[(e.title.lower(),e.start_date,e.city)]=e
     return list(uniq.values())

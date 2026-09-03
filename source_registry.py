@@ -16,6 +16,30 @@ class SourceDefinition:
     notes: str
 
 SOURCES: List[SourceDefinition] = [
+    SourceDefinition(
+        key="visitorebro_editorial",
+        name="Visit Örebro – redaktionella eventlistor",
+        source_type="official_destination",
+        coverage="Kuraterade konserter, scen, familj och lokala event i Örebro",
+        country="Sverige", city="Örebro",
+        url="https://www.visitorebro.se/evenemang/",
+        trust_level="high",
+        import_mode="editorial_html",
+        enabled_by_default=True,
+        notes="Officiell destinationskälla. Hämtar endast strukturerade datum/titel/plats-rader från aktuella redaktionella eventlistor; ingen bild- eller beskrivningskopiering."
+    ),
+    SourceDefinition(
+        key="conventum",
+        name="Conventum",
+        source_type="official_venue",
+        coverage="Konserter, scen, mässor och publika event i Örebro",
+        country="Sverige", city="Örebro",
+        url="https://www.conventum.se/arrangemangskalender/",
+        trust_level="high",
+        import_mode="html_calendar",
+        enabled_by_default=True,
+        notes="Officiell venuekalender. Lokal pilotkälla med konservativ parser och 15 min app-cache."
+    ),
     SourceDefinition(key="showtic",name="Showtic",source_type="ticketing_calendar",coverage="Stand-up, musikal, teater och show",country="Sverige",city=None,url="https://showtic.se/forestallningar/stand-up",trust_level="high",import_mode="html_calendar",enabled_by_default=False,notes="Kompletterande svensk scenkälla; parser experimentell."),
 
 

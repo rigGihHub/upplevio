@@ -36,6 +36,13 @@ def init_db():
                 created_at TEXT NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS event_seen (
+                event_id TEXT PRIMARY KEY,
+                first_seen_at TEXT NOT NULL,
+                last_seen_at TEXT NOT NULL
+            )
+        """)
         conn.commit()
 
 def favorite_ids():
@@ -94,3 +101,32 @@ def delete_watch(watch_id):
     with connect() as conn:
         conn.execute("DELETE FROM watches WHERE id=?",(watch_id,))
         conn.commit()
+
+
+def record_event_sightings(event_ids):
+    """Persist when canonical event IDs were first/last seen by Upplevio.
+
+    This is global ingestion metadata, not user-specific visit history.
+    """
+    init_db()
+    now = datetime.now(timezone.utc).isoformat()
+    clean_ids = [str(x) for x in dict.fromkeys(event_ids) if x]
+    if not clean_ids:
+        return
+    with connect() as conn:
+        for event_id in clean_ids:
+            conn.execute(
+                """
+                INSERT INTO event_seen(event_id, first_seen_at, last_seen_at)
+                VALUES(?,?,?)
+                ON CONFLICT(event_id) DO UPDATE SET last_seen_at=excluded.last_seen_at
+                """,
+                (event_id, now, now),
+            )
+        conn.commit()
+
+def event_first_seen_map():
+    init_db()
+    with connect() as conn:
+        rows = conn.execute("SELECT event_id, first_seen_at FROM event_seen").fetchall()
+    return {row["event_id"]: row["first_seen_at"] for row in rows}
