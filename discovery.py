@@ -256,10 +256,63 @@ def discovery_rank(event, origin_city=None, price_filter="Alla priser", query=""
     return DiscoveryRank(score=int(score), reasons=tuple(reasons[:3]), distance_km=dist)
 
 
+def _diversity_penalty(event, selected) -> int:
+    """Small presentation penalty for near-tied results.
+
+    This is deliberately weaker than relevance. It only helps avoid a top list
+    where several almost-equally-ranked events from the same type, venue or day
+    occupy all first positions.
+    """
+    if not selected:
+        return 0
+
+    penalty = 0
+    recent = [item[1] for item in selected[-3:]]
+    same_type = sum(1 for e in recent if (e.event_type or "") == (event.event_type or ""))
+    same_venue = sum(1 for e in recent[-2:] if (e.venue or "") and (e.venue or "") == (event.venue or ""))
+    same_day = sum(1 for e in recent[-2:] if (e.start_date or "") == (event.start_date or ""))
+
+    penalty += min(6, same_type * 3)
+    penalty += min(4, same_venue * 4)
+    penalty += min(2, same_day * 2)
+    return penalty
+
+
+def _rerank_for_top_diversity(ranked, top_n=10, score_band=8):
+    """Reorder only near-tied candidates in the visible top results.
+
+    The highest remaining base score defines a narrow score band. Candidates
+    outside that band cannot jump ahead, which protects explicit query relevance,
+    proximity and timing. Only the first ``top_n`` results are diversified; the
+    rest keep their original ranking.
+    """
+    if len(ranked) < 3:
+        return ranked
+
+    remaining = list(ranked)
+    selected = []
+    while remaining and len(selected) < min(top_n, len(ranked)):
+        best_base = remaining[0][0].score
+        eligible = [item for item in remaining if item[0].score >= best_base - score_band]
+        chosen = min(
+            eligible,
+            key=lambda item: (
+                -(item[0].score - _diversity_penalty(item[1], selected)),
+                -item[0].score,
+                item[1].start_date or "9999-12-31",
+                (item[1].title or "").lower(),
+            ),
+        )
+        selected.append(chosen)
+        remaining.remove(chosen)
+
+    return selected + remaining
+
+
 def rank_discovery(events, origin_city=None, price_filter="Alla priser", query="", today=None, interests=None):
     ranked = [(discovery_rank(e, origin_city, price_filter, query, today, interests), e) for e in events]
     ranked.sort(key=lambda item: (-item[0].score, item[1].start_date, (item[1].title or "").lower()))
-    return ranked
+    return _rerank_for_top_diversity(ranked)
 
 
 def travel_score(event, origin_city, interests):

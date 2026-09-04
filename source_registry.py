@@ -17,6 +17,42 @@ class SourceDefinition:
 
 SOURCES: List[SourceDefinition] = [
     SourceDefinition(
+        key="lov_orebro",
+        name="Lov Örebro",
+        source_type="official_municipal_activity_calendar",
+        coverage="Lovaktiviteter för barn och unga i Örebro kommun",
+        country="Sverige", city="Örebro",
+        url="https://guide.orebro.se/lovorebro/",
+        trust_level="high",
+        import_mode="html_activity_calendar",
+        enabled_by_default=True,
+        notes="Officiell kommunal long-tail-källa. Säsongsbetonad och fylls på inför skollov; gratisstatus tas bara när den uttryckligen anges."
+    ),
+    SourceDefinition(
+        key="osk_fotboll",
+        name="ÖSK Fotboll",
+        source_type="official_club_schedule",
+        coverage="ÖSK herr- och damlagets hemmamatcher i Örebro",
+        country="Sverige", city="Örebro",
+        url="https://oskfotboll.se/ga-pa-match/",
+        trust_level="high",
+        import_mode="official_schedule_html",
+        enabled_by_default=True,
+        notes="Officiella spelscheman. Endast hemmamatcher på Behrn Arena importeras till lokal discovery."
+    ),
+    SourceDefinition(
+        key="orebro_hockey",
+        name="Örebro Hockey",
+        source_type="official_club_schedule",
+        coverage="Örebro Hockeys hemmamatcher i Behrn Arena",
+        country="Sverige", city="Örebro",
+        url="https://www.orebrohockey.se/matcher",
+        trust_level="high",
+        import_mode="official_schedule_html",
+        enabled_by_default=True,
+        notes="Officiell sportkälla. Pilotparser från publicerat spelschema tills dokumenterad maskinläsbar feed verifierats."
+    ),
+    SourceDefinition(
         key="visitorebro_editorial",
         name="Visit Örebro – redaktionella eventlistor",
         source_type="official_destination",

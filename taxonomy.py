@@ -41,7 +41,7 @@ RULES = {
     "Mat & dryck": [r"\bmat\b", r"\bfood\b", r"\bdryck\b", r"\bvin\b", r"\böl\b"],
     "Teater": [r"\bteater\b", r"\btheatre\b", r"\bdrama\b"],
     "Musikal/show": [r"\bmusikal\b", r"\bmusical\b", r"\bshow\b"],
-    "Sport": [r"\bsportevent\b", r"\bmästerskap\b", r"\bchampionship\b"],
+    "Sport": [r"\bsportevent\b", r"\bmästerskap\b", r"\bchampionship\b", r"\bfotboll\b", r"\bhockey\b", r"\bshl\b", r"\bsuperettan\b", r"\belitettan\b", r"\börebro sk\b", r"\börebro hockey\b"],
 }
 
 EVENT_TYPE_PRIORITY = [

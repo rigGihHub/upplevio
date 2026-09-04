@@ -63,3 +63,82 @@ def price_label(event) -> str:
     if high is not None and high > low:
         return f"{low:g}–{high:g}{suffix}"
     return f"Från {low:g}{suffix}"
+
+
+def event_period_matches(event, preset: str, today: date) -> bool:
+    """Match date presets against an event interval, not only its start date."""
+    try:
+        start = date.fromisoformat(event.start_date)
+    except Exception:
+        return False
+    try:
+        end = date.fromisoformat(event.end_date) if getattr(event, "end_date", None) else start
+    except Exception:
+        end = start
+    if end < today:
+        return False
+    effective_start = max(start, today)
+    if preset == "Idag":
+        return start <= today <= end
+    if preset == "I helgen":
+        days_to_sat = (5 - today.weekday()) % 7
+        saturday = today + timedelta(days=days_to_sat)
+        sunday = saturday + timedelta(days=1)
+        return effective_start <= sunday and end >= saturday
+    days = DATE_FILTER_DAYS.get(preset)
+    if days is None:
+        return True
+    window_end = today + timedelta(days=days)
+    return effective_start <= window_end and end >= today
+
+
+SWEDISH_WEEKDAYS = ["mån", "tis", "ons", "tors", "fre", "lör", "sön"]
+SWEDISH_MONTHS = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"]
+
+def compact_date_label(event, today: date) -> str:
+    """Short Swedish date label optimized for event cards."""
+    try:
+        start = date.fromisoformat(event.start_date)
+    except Exception:
+        return "Datum saknas"
+    if start == today:
+        base = "Idag"
+    elif start == today + timedelta(days=1):
+        base = "Imorgon"
+    else:
+        base = f"{SWEDISH_WEEKDAYS[start.weekday()]} {start.day} {SWEDISH_MONTHS[start.month-1]}"
+    time = (getattr(event, "start_time", None) or "").strip()
+    if time:
+        # APIs often return seconds; minutes are enough for discovery cards.
+        time = time[:5] if len(time) >= 5 else time
+        return f"{base} · {time}"
+    return base
+
+def compact_location_label(event, distance=None, approximate=False) -> str:
+    venue = (getattr(event, "venue", None) or "").strip()
+    city = (getattr(event, "city", None) or "").strip()
+    if venue and city and venue.casefold() != city.casefold():
+        place = f"{venue}, {city}"
+    else:
+        place = venue or city or "Plats ej angiven"
+    if distance is not None:
+        prefix = "ca " if approximate else ""
+        place += f" · {prefix}{distance:g} km"
+    return place
+
+DISCOVERY_DEFAULTS = {
+    "city": "Örebro",
+    "when": "Nästa 7 dagar",
+    "radius_km": 50,
+    "price": "Alla priser",
+}
+
+
+def discovery_context_label(city: str, when: str, radius_km: int | None, price_filter: str) -> str:
+    """Compact human-readable summary of the active core discovery choices."""
+    parts = [city or "Hela Sverige", when]
+    if city and city != "Hela Sverige" and radius_km is not None:
+        parts.append(f"inom {int(radius_km)} km")
+    if price_filter and price_filter != "Alla priser":
+        parts.append(price_filter.lower())
+    return " · ".join(parts)

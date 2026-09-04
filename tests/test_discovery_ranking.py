@@ -78,3 +78,44 @@ def test_query_filter_normalizes_accents_too():
     from discovery import event_matches_query
     pokemon = ev(title="Pokémonmässa")
     assert event_matches_query(pokemon, "pokemon") is True
+
+
+def test_top_results_diversify_near_tied_event_types():
+    events = [
+        ev(id="c1", title="A Konsert", event_type="Konsert", category="Musik"),
+        ev(id="c2", title="B Konsert", event_type="Konsert", category="Musik"),
+        ev(id="s1", title="Z Fotboll", event_type="Sport", category="Sport"),
+    ]
+    ranked = rank_discovery(events, origin_city="Örebro", today=date(2026, 9, 3))
+    assert ranked[0][1].id == "c1"
+    assert ranked[1][1].id == "s1"
+
+
+def test_top_results_diversify_near_tied_venues():
+    events = [
+        ev(id="a1", title="A", venue="Conventum", event_type="Konsert"),
+        ev(id="a2", title="B", venue="Conventum", event_type="Sport"),
+        ev(id="b1", title="C", venue="Kulturkvarteret", event_type="Teater"),
+    ]
+    ranked = rank_discovery(events, origin_city="Örebro", today=date(2026, 9, 3))
+    assert ranked[0][1].id == "a1"
+    assert ranked[1][1].id == "b1"
+
+
+def test_diversity_never_overrides_strong_query_relevance_gap():
+    strong = ev(id="strong", title="Pokémon Expo", event_type="Mässa", category="Samlarkort")
+    weak = ev(id="weak", title="Jazzkväll", event_type="Konsert", category="Musik")
+    ranked = rank_discovery([weak, strong], origin_city="Örebro", query="pokemon", today=date(2026, 9, 3))
+    assert ranked[0][1].id == "strong"
+
+
+def test_diversity_does_not_change_rank_scores_or_reasons():
+    events = [
+        ev(id="c1", title="Konsert A", event_type="Konsert"),
+        ev(id="c2", title="Konsert B", event_type="Konsert"),
+        ev(id="s1", title="Sport A", event_type="Sport"),
+    ]
+    expected = {e.id: discovery_rank(e, "Örebro", today=date(2026, 9, 3)) for e in events}
+    ranked = rank_discovery(events, origin_city="Örebro", today=date(2026, 9, 3))
+    for rank, event in ranked:
+        assert rank == expected[event.id]

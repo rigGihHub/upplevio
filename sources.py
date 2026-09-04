@@ -4,6 +4,7 @@ import hashlib
 import requests
 from models import Event, SourceRecord
 from taxonomy import classify
+from source_health import safe_import_error
 
 def _now_iso():
     return datetime.now(timezone.utc).isoformat()
@@ -254,79 +255,93 @@ def visitsweden_events(page_size=100, max_pages=5):
         "truncated": truncated,
     }
 
-def load_events(api_key=None, include_visitsweden=True, include_conventum=True, include_visitorebro_editorial=True, experimental_official_keys=None, experimental_collector_keys=None, experimental_entertainment_keys=None, include_demo=False):
+def load_events(api_key=None, include_visitsweden=True, include_conventum=True, include_visitorebro_editorial=True, include_orebro_sports=True, include_lov_orebro=True, experimental_official_keys=None, experimental_collector_keys=None, experimental_entertainment_keys=None, include_demo=False):
+    """Load independent sources concurrently while isolating source failures."""
+    from source_fetch import SourceTask, run_source_tasks
+
     events = []
     source_health = []
+    tasks = []
+
     if api_key:
-        try:
+        def fetch_ticketmaster():
             tm, meta = ticketmaster_events(api_key)
-            events.extend(tm)
             status = "Delvis" if meta["truncated"] else "OK"
             comment = f'{meta["pages_fetched"]} sida/sidor · API-total {meta["total_elements"]}'
             if meta["truncated"]:
                 comment += f' · import stoppad vid säkerhetsgräns ({meta["pages_fetched"] * meta["page_size"]} poster)'
-            source_health.append(("Ticketmaster",status,len(tm),comment))
-        except Exception as exc:
-            source_health.append(("Ticketmaster","Fel",0,str(exc)))
+            return tm, [("Ticketmaster", status, len(tm), comment)]
+        tasks.append(SourceTask("ticketmaster", "Ticketmaster", fetch_ticketmaster))
     else:
-        source_health.append(("Ticketmaster","Ej konfigurerad",0,"API-nyckel saknas"))
+        source_health.append(("Ticketmaster", "Ej konfigurerad", 0, "API-nyckel saknas"))
 
     if include_visitsweden:
-        try:
+        def fetch_visitsweden():
             vs, meta = visitsweden_events()
-            events.extend(vs)
             status = "Delvis" if meta["truncated"] else "OK"
             comment = f'{meta["pages_fetched"]} sida/sidor'
             if meta["truncated"]:
                 comment += f' · import stoppad vid säkerhetsgräns ({meta["pages_fetched"] * meta["page_size"]} poster)'
-            source_health.append(("Visit Sweden",status,len(vs),comment))
-        except Exception as exc:
-            source_health.append(("Visit Sweden","Fel",0,str(exc)))
+            return vs, [("Visit Sweden", status, len(vs), comment)]
+        tasks.append(SourceTask("visitsweden", "Visit Sweden", fetch_visitsweden))
 
     if include_conventum:
-        try:
+        def fetch_conventum():
             from official_sources import conventum_events
-            cv = conventum_events()
-            events.extend(cv)
-            source_health.append(("Conventum", "OK", len(cv), "Officiell Örebro-kalender · lokal pilotkälla"))
-        except Exception as exc:
-            source_health.append(("Conventum", "Fel", 0, str(exc)))
+            rows = conventum_events()
+            return rows, [("Conventum", "OK", len(rows), "Officiell Örebro-kalender · lokal pilotkälla")]
+        tasks.append(SourceTask("conventum", "Conventum", fetch_conventum))
 
     if include_visitorebro_editorial:
-        try:
+        def fetch_visitorebro():
             from official_sources import visitorebro_editorial_events
-            vo = visitorebro_editorial_events()
-            events.extend(vo)
-            source_health.append(("Visit Örebro", "OK", len(vo), "Officiella redaktionella eventlistor · kompletterande lokal discovery-källa"))
-        except Exception as exc:
-            source_health.append(("Visit Örebro", "Fel", 0, str(exc)))
+            rows = visitorebro_editorial_events()
+            return rows, [("Visit Örebro", "OK", len(rows), "Officiella redaktionella eventlistor · kompletterande lokal discovery-källa")]
+        tasks.append(SourceTask("visitorebro", "Visit Örebro", fetch_visitorebro))
 
-    # Keep demo rows until real-source coverage is sufficient, always clearly marked.
+    if include_lov_orebro:
+        def fetch_lov_orebro():
+            from community_sources import lov_orebro_events
+            rows = lov_orebro_events()
+            status = "OK" if rows else "Säsongstom"
+            return rows, [("Lov Örebro", status, len(rows), "Officiell kommunal lovkalender · barn, unga och lokala föreningsaktiviteter")]
+        tasks.append(SourceTask("lov_orebro", "Lov Örebro", fetch_lov_orebro))
+
+    if include_orebro_sports:
+        def fetch_osk():
+            from sports_sources import osk_events
+            rows = osk_events()
+            return rows, [("ÖSK Fotboll", "OK", len(rows), "Officiella herr- och damscheman · endast hemmamatcher i Örebro")]
+        def fetch_orebro_hockey():
+            from sports_sources import orebro_hockey_events
+            rows = orebro_hockey_events()
+            return rows, [("Örebro Hockey", "Pilot", len(rows), "Officiellt publicerat spelschema · hemmamatcher i Behrn Arena")]
+        tasks.extend([
+            SourceTask("osk", "ÖSK Fotboll", fetch_osk),
+            SourceTask("orebro_hockey", "Örebro Hockey", fetch_orebro_hockey),
+        ])
+
     if experimental_official_keys:
-        try:
+        def fetch_experimental_official():
             from official_sources import experimental_official_events
-            extra, extra_health = experimental_official_events(experimental_official_keys)
-            events.extend(extra)
-            source_health.extend(extra_health)
-        except Exception as exc:
-            source_health.append(("Officiella mässkalendrar","Fel",0,str(exc)))
+            return experimental_official_events(experimental_official_keys)
+        tasks.append(SourceTask("experimental_official", "Officiella mässkalendrar", fetch_experimental_official))
 
     if experimental_collector_keys:
-        try:
+        def fetch_collectors():
             from collector_sources import experimental_collector_events
-            extra, extra_health = experimental_collector_events(experimental_collector_keys)
-            events.extend(extra)
-            source_health.extend(extra_health)
-        except Exception as exc:
-            source_health.append(("Samlarkällor","Fel",0,str(exc)))
+            return experimental_collector_events(experimental_collector_keys)
+        tasks.append(SourceTask("collectors", "Samlarkällor", fetch_collectors))
 
     if experimental_entertainment_keys:
-        try:
+        def fetch_entertainment():
             from entertainment_sources import experimental_entertainment_events
-            extra, extra_health = experimental_entertainment_events(experimental_entertainment_keys)
-            events.extend(extra); source_health.extend(extra_health)
-        except Exception as exc:
-            source_health.append(("Scen/underhållning","Fel",0,str(exc)))
+            return experimental_entertainment_events(experimental_entertainment_keys)
+        tasks.append(SourceTask("entertainment", "Scen/underhållning", fetch_entertainment))
+
+    for result in run_source_tasks(tasks):
+        events.extend(result.events)
+        source_health.extend(result.health)
 
     # Enrich every event with the common multi-label taxonomy.
     for e in events:

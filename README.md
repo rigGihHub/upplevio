@@ -1,4 +1,6 @@
-# Upplevio v0.11.0
+# Upplevio
+
+Senaste release: **v0.25.0 – Top-result Ranking Quality**
 
 **Upptäck mer. Upplev mer.**
 
@@ -52,3 +54,44 @@ Multi-source merge och tydligare källförtroende. Samma event från flera obero
 
 ## v0.17.0 – Explainable Discovery Ranking
 Huvudresultaten använder nu en transparent regelbaserad ranking baserad på sökrelevans, avstånd, tid och pris. Källförtroende används endast som liten tie-breaker. Eventkort förklarar kort varför ett event rankas högt.
+
+## v0.22.0
+Källhälsa och tyst felupptäckt: konservativ diagnostik för tomma aktiva källor, importfel och sannolika parserregressioner. Säsongstomma källor behandlas separat. Rå exceptiontext exponeras inte längre i Admin.
+
+
+## v0.22.0
+
+- Smart nollträffs-fallback med tydligt märkta nära alternativ.
+- Breddar ett filter i taget och ändrar aldrig användarens aktiva val i bakgrunden.
+- Sökord och eventtyp relaxeras inte automatiskt.
+- Kan som sista steg föreslå kombinerad längre period + större radie när en enda lättnad inte räcker.
+
+
+## v0.23.0
+Förbättrad eventkortshierarki och mobil scanability: varje event visas en gång, snabbfakta prioriteras och detaljer öppnas inline under rätt kort.
+
+
+## v0.24.0
+Första 10 sekunderna är förenklade: tydligare kärnlöfte, två rader med Var → När → Hur långt → Budget, snävare relevanta standardval och alla sekundära val samlade under “Fler val”.
+
+
+## v0.25.0
+
+- Förbättrad ranking av de första 10 resultaten utan ny tung rekommendationsmodell.
+- Nästan likvärdiga event kan spridas ut efter eventtyp, arena och datum så att toppen inte domineras av samma sorts event.
+- Diversifiering får endast påverka kandidater inom ett smalt poängband; tydligt högre relevans, närhet, tid eller explicit sökträff skyddas.
+- Grundpoäng och förklaringar ändras inte av diversifieringen.
+- Deterministisk tie-break: grundscore, datum och titel; ingen slumpmässig ordning.
+- 73 tester passerar i releasebygget.
+
+
+## v0.26.0 — Result Density & Performance
+- Renderar bara aktiv huvudvy i stället för alla Streamlit-tabs vid varje rerun.
+- Visar 12 resultat åt gången med "Visa fler".
+- Cachear dedupe och källhälsa på oförändrad import.
+- Undviker upprepade SQLite-skrivningar av event sightings vid rena UI-reruns.
+- 78 tester passerar.
+
+## v0.27.0 — Source Latency & Failure Isolation
+
+Oberoende datakällor hämtas parallellt och ett källfel isoleras utan att kasta bort lyckade källors resultat. Diagnostikordningen är fortsatt deterministisk. Liveprestanda är inte verifierad före deploy.
