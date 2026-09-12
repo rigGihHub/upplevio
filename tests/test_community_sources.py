@@ -39,3 +39,24 @@ def test_ended_activity_does_not_match_today():
     html = '<div><div>Gratis</div><h4>Avslutad aktivitet</h4><p>Test.</p><p>1 juni–5 juni</p></div>'
     event = parse_lov_orebro_html(html, source_url="https://example.test", year=2026)[0]
     assert not event_period_matches(event, "Idag", date(2026, 7, 10))
+
+from community_sources import parse_city_orebro_html
+
+
+def test_city_orebro_parses_local_long_tail_cards_without_inventing_price():
+    html='''<main>
+      <article><div>Familjevänligt, Övrigt</div><h3><a href="/evenemang/barnens-dag/">Barnens dag i city</a></h3><p>12 sep</p></article>
+      <article><div>Konst</div><h3><a href="https://cityorebro.com/evenemang/wonderland/">Wonderland</a></h3><p>14 maj - 11 okt</p></article>
+    </main>'''
+    rows=parse_city_orebro_html(html,source_url="https://cityorebro.com/evenemang/",year=2026)
+    assert len(rows)==2
+    assert rows[0].title=="Barnens dag i city"
+    assert rows[0].start_date=="2026-09-12"
+    assert rows[0].price_status=="unknown"
+    assert "Familjevänligt" in rows[0].tags
+    assert rows[1].start_date=="2026-05-14" and rows[1].end_date=="2026-10-11"
+
+
+def test_city_orebro_requires_explicit_date():
+    html='<article><h3><a href="/evenemang/no-date/">Event utan datum</a></h3><p>Välkommen!</p></article>'
+    assert parse_city_orebro_html(html,source_url="https://cityorebro.com/evenemang/",year=2026)==[]

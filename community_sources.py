@@ -135,3 +135,84 @@ def lov_orebro_events(*, today: date | None = None) -> list[Event]:
     rows = parse_lov_orebro_html(r.text, source_url=url, year=today.year)
     # Keep future and currently ongoing activities. Expired seasonal rows must not leak into discovery.
     return [e for e in rows if date.fromisoformat(e.end_date or e.start_date) >= today]
+
+_CITY_OREBRO_MONTHS = {
+    "jan":1,"januari":1,"feb":2,"februari":2,"mar":3,"mars":3,"apr":4,"april":4,
+    "maj":5,"jun":6,"juni":6,"jul":7,"juli":7,"aug":8,"augusti":8,
+    "sep":9,"september":9,"okt":10,"oktober":10,"nov":11,"november":11,"dec":12,"december":12,
+}
+
+def _city_orebro_date(text: str, year: int):
+    clean = re.sub(r"\s+", " ", (text or "").lower().replace("–", "-").replace("—", "-")).strip()
+    m = re.search(r"(\d{1,2})\s*-\s*(\d{1,2})\s+([a-zåäö]+)", clean)
+    if m and m.group(3) in _CITY_OREBRO_MONTHS:
+        mo=_CITY_OREBRO_MONTHS[m.group(3)]
+        return date(year,mo,int(m.group(1))).isoformat(), date(year,mo,int(m.group(2))).isoformat()
+    m = re.search(r"(\d{1,2})\s+([a-zåäö]+)\s*-\s*(\d{1,2})\s+([a-zåäö]+)", clean)
+    if m and m.group(2) in _CITY_OREBRO_MONTHS and m.group(4) in _CITY_OREBRO_MONTHS:
+        return date(year,_CITY_OREBRO_MONTHS[m.group(2)],int(m.group(1))).isoformat(), date(year,_CITY_OREBRO_MONTHS[m.group(4)],int(m.group(3))).isoformat()
+    m = re.search(r"(\d{1,2})\s+([a-zåäö]+)", clean)
+    if m and m.group(2) in _CITY_OREBRO_MONTHS:
+        iso=date(year,_CITY_OREBRO_MONTHS[m.group(2)],int(m.group(1))).isoformat()
+        return iso,None
+    return None
+
+
+def parse_city_orebro_html(html_text: str, *, source_url: str, year: int) -> list[Event]:
+    """Conservative parser for City Örebro's public event listing.
+
+    Only cards with a title and an explicit Swedish date are accepted. The listing
+    is a discovery lead: missing price remains unknown and descriptions are not copied.
+    """
+    soup=BeautifulSoup(html_text or "", "html.parser")
+    source=source_by_key("city_orebro")
+    source_name=source.name if source else "City Örebro"
+    out=[]; seen=set()
+    for h in soup.find_all(["h2","h3","h4"]):
+        title=re.sub(r"\\s+"," ",h.get_text(" ",strip=True)).strip()
+        if not title or title.casefold() in {"evenemang","familjevänligt","visa alla"}:
+            continue
+        container=h.find_parent(["article","li","section","div"]) or h.parent
+        text=re.sub(r"\\s+"," ",container.get_text(" ",strip=True) if container else "").strip()
+        parsed=_city_orebro_date(text,year)
+        if not parsed:
+            continue
+        start,end=parsed
+        if (title.casefold(),start) in seen:
+            continue
+        link=h.find("a",href=True) or (container.find("a",href=True) if container else None)
+        href=(link.get("href") or "").strip() if link else ""
+        if href.startswith("/"):
+            href="https://cityorebro.com"+href
+        elif href and not href.startswith("http"):
+            href="https://cityorebro.com/"+href.lstrip("/")
+        labels=[]
+        for label in ["Familjevänligt","Konsert","Konst","Teater","Sport","Övrigt"]:
+            if label.casefold() in text.casefold(): labels.append(label)
+        ext=href or f"{title}|{start}|{end or ''}"
+        digest=hashlib.sha1(ext.encode("utf-8")).hexdigest()[:20]
+        out.append(Event(
+            id=f"cityorebro-{digest}", title=title, event_type="Evenemang", category=labels[0] if labels else "Lokalt",
+            start_date=start,end_date=end,start_time=None,venue="",city="Örebro",region="Örebro län",country="Sverige",
+            official_url=href or source_url,status="confirmed",source_names=[source_name],source_count=1,
+            source_records=[SourceRecord(source=source_name,external_id=ext,source_url=href or source_url,fetched_at=_now_iso(),raw_title=title)],
+            verified_at=_now_iso(),created_at=_now_iso(),updated_at=_now_iso(),description="",tags=["Lokalt",*labels],is_demo=False,
+            data_quality="source_verified",quality_notes=["Importerad från City Örebros publika eventkalender; detaljfält verifieras konservativt"],price_status="unknown"
+        ))
+        seen.add((title.casefold(),start))
+    return out
+
+
+def city_orebro_events(*, today: date | None = None) -> list[Event]:
+    today=today or date.today()
+    url="https://cityorebro.com/evenemang/"
+    r=requests.get(url,timeout=20,headers={"User-Agent":"Upplevio/0.39 (+event discovery prototype)"})
+    r.raise_for_status()
+    rows=parse_city_orebro_html(r.text,source_url=url,year=today.year)
+    rows=[e for e in rows if date.fromisoformat(e.end_date or e.start_date) >= today]
+    # City Örebro exposes individual event pages. Enrich only those concrete detail URLs.
+    detail_rows=[e for e in rows if (e.official_url or "").startswith("https://cityorebro.com/evenemang/") and e.official_url != url]
+    if detail_rows:
+        from booking_enrichment import enrich_events
+        enrich_events(detail_rows, max_fetches=12, workers=6, timeout=10)
+    return rows

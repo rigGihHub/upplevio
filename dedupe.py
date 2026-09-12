@@ -191,6 +191,7 @@ def merge_event(best, event):
     best.region = _prefer_text(best.region, event.region, prefer_incoming)
     best.country = _prefer_text(best.country, event.country, prefer_incoming)
     best.start_time = best.start_time or event.start_time
+    best.end_time = getattr(best, "end_time", None) or getattr(event, "end_time", None)
     best.end_date = best.end_date or event.end_date
     best.image_url = best.image_url or event.image_url
     best.official_url = best.official_url or event.official_url

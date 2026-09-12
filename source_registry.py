@@ -17,6 +17,42 @@ class SourceDefinition:
 
 SOURCES: List[SourceDefinition] = [
     SourceDefinition(
+        key="orebro_konserthus",
+        name="Örebro Konserthus",
+        source_type="official_venue",
+        coverage="Konserter och publika musikevenemang på Örebro Konserthus",
+        country="Sverige", city="Örebro",
+        url="https://www.orebrokonserthus.com/evenemang/",
+        trust_level="high",
+        import_mode="official_event_pages",
+        enabled_by_default=True,
+        notes="Officiell venuekälla med individuella eventsidor, explicit datum/tid/pris och boknings-CTA."
+    ),
+    SourceDefinition(
+        key="orebro_teater",
+        name="Örebro Teater",
+        source_type="official_venue",
+        coverage="Teater, scen, residens, poesi och barn/ungdom i Örebro",
+        country="Sverige", city="Örebro",
+        url="https://www.orebroteater.se/forestallningar/?active=calendar",
+        trust_level="high",
+        import_mode="official_calendar",
+        enabled_by_default=True,
+        notes="Officiell kalender med föreställningsdatum och individuella föreställningssidor."
+    ),
+    SourceDefinition(
+        key="city_orebro",
+        name="City Örebro",
+        source_type="official_local_city_calendar",
+        coverage="Lokala cityevent, familj, konst, teater, sport, marknader och mindre publika aktiviteter i Örebro",
+        country="Sverige", city="Örebro",
+        url="https://cityorebro.com/evenemang/",
+        trust_level="high",
+        import_mode="html_calendar",
+        enabled_by_default=True,
+        notes="Lokal long-tail-källa. Konservativ import från publika eventkort; saknat pris blir aldrig gratis."
+    ),
+    SourceDefinition(
         key="lov_orebro",
         name="Lov Örebro",
         source_type="official_municipal_activity_calendar",

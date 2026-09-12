@@ -108,9 +108,13 @@ def compact_date_label(event, today: date) -> str:
     else:
         base = f"{SWEDISH_WEEKDAYS[start.weekday()]} {start.day} {SWEDISH_MONTHS[start.month-1]}"
     time = (getattr(event, "start_time", None) or "").strip()
+    end_time = (getattr(event, "end_time", None) or "").strip()
     if time:
         # APIs often return seconds; minutes are enough for discovery cards.
         time = time[:5] if len(time) >= 5 else time
+        if end_time:
+            end_time = end_time[:5] if len(end_time) >= 5 else end_time
+            return f"{base} · {time}–{end_time}"
         return f"{base} · {time}"
     return base
 

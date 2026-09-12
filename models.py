@@ -24,6 +24,9 @@ class Event:
     city: str
     region: str
     country: str
+    end_time: Optional[str] = None
+    door_time: Optional[str] = None
+    age_limit: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     venue_latitude: Optional[float] = None
@@ -47,3 +50,19 @@ class Event:
     price_max: Optional[float] = None
     currency: str = "SEK"
     price_status: str = "unknown"  # unknown | known | free
+    # Commercial metadata is deliberately separate from organic discovery relevance.
+    is_sponsored: bool = False
+    sponsor_campaign_id: Optional[str] = None
+    sponsor_company: Optional[str] = None
+    sponsor_start_date: Optional[str] = None
+    sponsor_end_date: Optional[str] = None
+    sponsor_geo_areas: List[str] = field(default_factory=list)
+    sponsor_audiences: List[str] = field(default_factory=list)
+    sponsor_priority: int = 0
+    booking_partner: Optional[str] = None
+    booking_partner_key: Optional[str] = None
+    booking_partner_domain: Optional[str] = None
+    affiliate_status: str = "unassessed"
+    booking_url: Optional[str] = None
+    affiliate_program: Optional[str] = None
+    affiliate_ref: Optional[str] = None

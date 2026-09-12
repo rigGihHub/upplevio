@@ -256,7 +256,9 @@ def parse_conventum_html(html_text: str, today: date | None = None):
 def conventum_events():
     source = source_by_key("conventum")
     soup = _get(source.url)
-    return parse_conventum_html(str(soup))
+    rows = parse_conventum_html(str(soup))
+    from booking_enrichment import enrich_events
+    return enrich_events(rows, max_fetches=12, workers=6, timeout=10)
 
 VISITOREBRO_EDITORIAL_URLS = [
     "https://www.visitorebro.se/artikel/sevart-scen-orebro/",
@@ -355,3 +357,126 @@ def visitorebro_editorial_events():
         soup = _get(url)
         events.extend(parse_visitorebro_editorial_html(str(soup), source_url=url))
     return _unique(events)
+
+
+def _parse_swedish_day_month(text: str, *, year: int | None = None):
+    clean = re.sub(r"\s+", " ", (text or "").lower()).replace(".", "")
+    m = re.search(r"\b(\d{1,2})\s+(januari|februari|mars|april|maj|juni|juli|augusti|september|oktober|november|december)\b", clean)
+    if not m:
+        return None
+    y = year or date.today().year
+    try:
+        candidate = date(y, SV_MONTHS[m.group(2)], int(m.group(1)))
+    except ValueError:
+        return None
+    if year is None and candidate < date.today().replace(day=1):
+        candidate = date(y + 1, candidate.month, candidate.day)
+    return candidate.isoformat()
+
+def _explicit_price(text: str):
+    clean = re.sub(r"\s+", " ", (text or "").lower())
+    if re.search(r"\b(fri entré|gratis|kostnadsfria biljetter|kostnadsfritt)\b", clean):
+        return None, None, "free"
+    m = re.search(r"\b(\d{1,5})\s*(?:-|–|—)\s*(\d{1,5})\s*kronor\b", clean)
+    if m:
+        return float(m.group(1)), float(m.group(2)), "known"
+    m = re.search(r"\b(\d{1,5})\s*kronor\b", clean)
+    if m:
+        v=float(m.group(1))
+        return v, v, "known"
+    return None, None, "unknown"
+
+def parse_orebro_konserthus_event_page(html_text: str, page_url: str, *, today: date | None = None):
+    soup=BeautifulSoup(html_text or "", "html.parser")
+    title_node=soup.find("h1")
+    title=re.sub(r"\s+"," ",title_node.get_text(" ",strip=True) if title_node else "").strip()
+    if not title:
+        return None
+    text=re.sub(r"\s+"," ",soup.get_text(" ",strip=True))
+    year_match=re.search(r"\b(20\d{2})\b", text)
+    start_date=_parse_swedish_day_month(text, year=int(year_match.group(1)) if year_match else None)
+    if not start_date:
+        return None
+    tm=re.search(r"\bkl\.?\s*(\d{1,2})[:.](\d{2})\b", text.lower())
+    start_time=f"{int(tm.group(1)):02d}:{tm.group(2)}" if tm else None
+    pmin,pmax,pstatus=_explicit_price(text)
+    venue="Örebro Konserthus"
+    for candidate in ["Konsertsalen","Stadsparken"]:
+        if candidate.lower() in text.lower():
+            venue=candidate if candidate=="Stadsparken" else "Örebro Konserthus"
+            break
+    digest=hashlib.sha1(page_url.encode("utf-8")).hexdigest()[:20]
+    return Event(
+        id=f"orebro-kh-{digest}",title=title,event_type="Konsert",category="Musik",
+        start_date=start_date,end_date=None,start_time=start_time,venue=venue,city="Örebro",region="Örebro län",country="Sverige",
+        official_url=page_url,status="confirmed",source_names=["Örebro Konserthus"],source_count=1,
+        source_records=[SourceRecord(source="Örebro Konserthus",external_id=page_url,source_url=page_url,fetched_at=_now(),raw_title=title)],
+        verified_at=_now(),created_at=_now(),updated_at=_now(),description="",tags=["Musik"],is_demo=False,
+        data_quality="source_verified",quality_notes=["Titel, datum och metadata hämtade från officiell eventsida"],
+        price_min=pmin,price_max=pmax,currency="SEK",price_status=pstatus
+    )
+
+def parse_orebro_teater_calendar_html(html_text: str, *, today: date | None = None):
+    soup=BeautifulSoup(html_text or "", "html.parser")
+    source=source_by_key("orebro_teater")
+    events=[]
+    seen=set()
+    current_date=None
+    # Calendar headings carry dates; following links until next date heading belong to that date.
+    for node in soup.find_all(["h2","h3","h4","a"]):
+        if node.name in {"h2","h3","h4"}:
+            raw=node.get_text(" ",strip=True)
+            m=re.search(r"\b(\d{1,2})\s+(januari|februari|mars|april|maj|juni|juli|augusti|september|oktober|november|december)\s+(20\d{2})\b", raw.lower())
+            if m:
+                try: current_date=date(int(m.group(3)),SV_MONTHS[m.group(2)],int(m.group(1))).isoformat()
+                except ValueError: current_date=None
+            continue
+        if not current_date:
+            continue
+        href=(node.get("href") or "").strip()
+        title=re.sub(r"\s+"," ",node.get_text(" ",strip=True)).strip()
+        if not href or not title or title.lower() in {"köp biljett","läs mer"}:
+            continue
+        absolute=urljoin(source.url,href)
+        event_key = f"{absolute}|{current_date}"
+        if event_key in seen or "orebroteater.se" not in absolute:
+            continue
+        # Only event/production-like links with meaningful text.
+        if len(title)<3 or len(title)>180:
+            continue
+        seen.add(event_key)
+        digest=hashlib.sha1(event_key.encode("utf-8")).hexdigest()[:20]
+        events.append(Event(
+            id=f"orebro-teater-{digest}",title=title,event_type="Teater",category="Scen & teater",
+            start_date=current_date,end_date=None,start_time=None,venue="Örebro Teater",city="Örebro",region="Örebro län",country="Sverige",
+            official_url=absolute,status="confirmed",source_names=["Örebro Teater"],source_count=1,
+            source_records=[SourceRecord(source="Örebro Teater",external_id=f"{absolute}|{current_date}",source_url=absolute,fetched_at=_now(),raw_title=title)],
+            verified_at=_now(),created_at=_now(),updated_at=_now(),description="",tags=["Teater"],is_demo=False,
+            data_quality="partial",quality_notes=["Datum och titel importerade från Örebro Teaters officiella kalendarium"]
+        ))
+    return _unique(events)
+
+def orebro_konserthus_events():
+    source=source_by_key("orebro_konserthus")
+    soup=_get(source.url)
+    links=[]
+    for a in soup.find_all("a",href=True):
+        u=urljoin(source.url,a.get("href"))
+        if "/evenemang/" in u and u.rstrip("/") != source.url.rstrip("/") and u not in links:
+            links.append(u)
+    rows=[]
+    for url in links[:40]:
+        try:
+            detail=_get(url)
+            e=parse_orebro_konserthus_event_page(str(detail),url)
+            if e and date.fromisoformat(e.start_date) >= date.today():
+                rows.append(e)
+        except Exception:
+            continue
+    from booking_enrichment import enrich_events
+    return enrich_events(_unique(rows),max_fetches=12,workers=6,timeout=10)
+
+def orebro_teater_events():
+    source=source_by_key("orebro_teater")
+    soup=_get(source.url)
+    return parse_orebro_teater_calendar_html(str(soup))

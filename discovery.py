@@ -5,6 +5,7 @@ import unicodedata
 import re
 
 from coverage import distance_from_city
+from discovery_data_quality import apply_discovery_quality_gate
 
 DEFAULT_INTERESTS = {
     "Rock", "Hårdrock/metal", "Teknik", "Samlarkort", "Sportkort", "Retro & nostalgi",
@@ -251,6 +252,13 @@ def discovery_rank(event, origin_city=None, price_filter="Alla priser", query=""
 
     if getattr(event, "is_demo", False):
         score -= 100
+
+    score, quality_reason = apply_discovery_quality_gate(score, event)
+    if quality_reason:
+        # A core-integrity problem is important enough to surface in the short
+        # explanation. Secondary missing metadata never reaches this branch.
+        reasons = [r for r in reasons if r != quality_reason]
+        reasons = (reasons[:2] + [quality_reason])
 
     # Keep explanations short enough for event cards.
     return DiscoveryRank(score=int(score), reasons=tuple(reasons[:3]), distance_km=dist)

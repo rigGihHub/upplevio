@@ -187,8 +187,18 @@ def _visitsweden_page(limit=100, offset=0):
         start = _lang_text(_first_value(x, ["http://schema.org/startDate","startDate","schema:startDate"]))
         if not title or not start:
             continue
-        start_date = str(start)[:10]
+        start_raw = str(start)
+        start_date = start_raw[:10]
+        start_time = None
+        m_start_time = __import__("re").search(r"T(\d{2}):(\d{2})", start_raw)
+        if m_start_time:
+            start_time = f"{m_start_time.group(1)}:{m_start_time.group(2)}"
         end = _lang_text(_first_value(x, ["http://schema.org/endDate","endDate","schema:endDate"]))
+        end_raw = str(end) if end else ""
+        end_time = None
+        m_end_time = __import__("re").search(r"T(\d{2}):(\d{2})", end_raw)
+        if m_end_time:
+            end_time = f"{m_end_time.group(1)}:{m_end_time.group(2)}"
         desc = _lang_text(_first_value(x, ["http://schema.org/description","description","schema:description"])) or ""
         url_value = _lang_text(_first_value(x, ["http://schema.org/url","url","schema:url"]))
         location = _first_value(x, ["http://schema.org/location","location","schema:location"])
@@ -216,7 +226,7 @@ def _visitsweden_page(limit=100, offset=0):
             type_text = "Festival"
         events.append(Event(
             id=f"vs-{hashlib.sha1(ext_id.encode("utf-8")).hexdigest()[:20]}", title=title,event_type=type_text,category="Okategoriserat",
-            start_date=start_date,end_date=str(end)[:10] if end else None,start_time=None,
+            start_date=start_date,end_date=end_raw[:10] if end else None,start_time=start_time,end_time=end_time,
             venue=venue,city=city,region=region,country="Sverige",
             latitude=lat,longitude=lon,venue_latitude=lat,venue_longitude=lon,image_url=None,official_url=url_value,ticket_url=None,
             status="confirmed",source_names=["Visit Sweden"],source_count=1,
@@ -255,7 +265,7 @@ def visitsweden_events(page_size=100, max_pages=5):
         "truncated": truncated,
     }
 
-def load_events(api_key=None, include_visitsweden=True, include_conventum=True, include_visitorebro_editorial=True, include_orebro_sports=True, include_lov_orebro=True, experimental_official_keys=None, experimental_collector_keys=None, experimental_entertainment_keys=None, include_demo=False):
+def load_events(api_key=None, include_visitsweden=True, include_conventum=True, include_visitorebro_editorial=True, include_orebro_sports=True, include_lov_orebro=True, include_city_orebro=True, include_orebro_culture=True, experimental_official_keys=None, experimental_collector_keys=None, experimental_entertainment_keys=None, include_demo=False):
     """Load independent sources concurrently while isolating source failures."""
     from source_fetch import SourceTask, run_source_tasks
 
@@ -298,6 +308,27 @@ def load_events(api_key=None, include_visitsweden=True, include_conventum=True, 
             rows = visitorebro_editorial_events()
             return rows, [("Visit Örebro", "OK", len(rows), "Officiella redaktionella eventlistor · kompletterande lokal discovery-källa")]
         tasks.append(SourceTask("visitorebro", "Visit Örebro", fetch_visitorebro))
+
+    if include_orebro_culture:
+        def fetch_orebro_konserthus():
+            from official_sources import orebro_konserthus_events
+            rows = orebro_konserthus_events()
+            return rows, [("Örebro Konserthus", "OK", len(rows), "Officiella eventsidor · musik, pris och bokningsväg när explicit")]
+        def fetch_orebro_teater():
+            from official_sources import orebro_teater_events
+            rows = orebro_teater_events()
+            return rows, [("Örebro Teater", "OK", len(rows), "Officiellt kalendarium · scen, teater och lokala föreställningar")]
+        tasks.extend([
+            SourceTask("orebro_konserthus", "Örebro Konserthus", fetch_orebro_konserthus),
+            SourceTask("orebro_teater", "Örebro Teater", fetch_orebro_teater),
+        ])
+
+    if include_city_orebro:
+        def fetch_city_orebro():
+            from community_sources import city_orebro_events
+            rows = city_orebro_events()
+            return rows, [("City Örebro", "OK", len(rows), "Lokal citykalender · long-tail, familj, konst, teater, sport och mindre publika event")]
+        tasks.append(SourceTask("city_orebro", "City Örebro", fetch_city_orebro))
 
     if include_lov_orebro:
         def fetch_lov_orebro():
