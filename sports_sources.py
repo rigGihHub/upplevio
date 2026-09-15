@@ -225,10 +225,94 @@ def parse_orebro_hockey_article_html(html_text: str, *, source_url: str) -> list
     return out
 
 
+def parse_orebro_hockey_schedule_payload(payload: dict, *, source_url: str) -> list[Event]:
+    """Parse Sportality's official schedule response conservatively.
+
+    The public endpoint returns a ``gameInfo`` collection. Field names have varied
+    between site releases, so the parser accepts the documented object shapes but
+    still requires an explicit Örebro home team and Behrn Arena.
+    """
+    games = payload.get("gameInfo") or payload.get("games") or []
+    if isinstance(games, dict):
+        games = games.get("content") or games.get("items") or []
+    if not isinstance(games, list):
+        return []
+
+    def _name(value) -> str:
+        if isinstance(value, str):
+            return value.strip()
+        if not isinstance(value, dict):
+            return ""
+        names = value.get("teamNames") or {}
+        return str(
+            value.get("displayName") or value.get("name") or
+            names.get("longSite") or names.get("long") or names.get("short") or ""
+        ).strip()
+
+    out: list[Event] = []
+    seen: set[tuple[str, str]] = set()
+    for game in games:
+        if not isinstance(game, dict):
+            continue
+        home = _name(game.get("homeTeam") or game.get("teamHome"))
+        away = _name(game.get("awayTeam") or game.get("teamAway"))
+        venue_value = game.get("arena") or game.get("venue") or game.get("location")
+        venue = _name(venue_value)
+        if "örebro" not in home.lower() or "behrn arena" not in venue.lower():
+            continue
+        raw_start = str(game.get("startDateTime") or game.get("startTime") or game.get("date") or "")
+        date_match = re.match(r"(20\d{2}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2}))?", raw_start)
+        if not date_match or not away:
+            continue
+        start_date, start_time = date_match.group(1), date_match.group(2)
+        title = f"{home} – {away}"
+        key = (title.lower(), start_date)
+        if key in seen:
+            continue
+        seen.add(key)
+        external_id = str(game.get("uuid") or game.get("id") or f"{title}|{raw_start}|{venue}")
+        out.append(_event(
+            source_key="orebro_hockey",
+            external_id=external_id,
+            title=title,
+            start_date=start_date,
+            start_time=start_time,
+            venue=venue,
+            city="Örebro",
+            url=source_url,
+            tags=["Sport", "Hockey", "SHL"],
+            quality_note="Match importerad från Örebro Hockeys officiella spelschema; endast hemmamatcher i Behrn Arena tas med",
+        ))
+    return out
+
+
 def orebro_hockey_events() -> list[Event]:
-    # Stable official season-schedule article. Prefer a proper calendar/feed later
-    # if a documented machine-readable endpoint becomes available.
-    url = "https://www.orebrohockey.se/article/yfqatew-3afc1/view"
-    r = requests.get(url, timeout=20, headers={"User-Agent": "Upplevio/0.20 (+event discovery prototype)"})
+    schedule_url = (
+        "https://www.orebrohockey.se/game-schedule"
+        "?allGames=all&completeSeason=all&gameTypeUuid=qQ9-af37Ti40B"
+        "&homeAway=all&seasonUuid=ndcf81nlb3&seriesUuid=qQ9-bb0bzEWUk"
+    )
+    api_url = "https://www.orebrohockey.se/api/sports-v2/game-schedule"
+    params = {
+        "seasonUuid": "ndcf81nlb3", "seriesUuid": "qQ9-bb0bzEWUk",
+        "gameTypeUuid": "qQ9-af37Ti40B", "gamePlace": "all", "played": "all",
+    }
+    headers = {
+        "User-Agent": "Upplevio/0.81 (+event discovery)",
+        "Accept": "application/json", "x-s8y-instance-id": "ohk1_ohk",
+    }
+    try:
+        r = requests.get(api_url, params=params, timeout=12, headers=headers)
+        r.raise_for_status()
+        rows = parse_orebro_hockey_schedule_payload(r.json(), source_url=schedule_url)
+        if rows:
+            return rows
+    except (requests.RequestException, ValueError):
+        pass
+
+    # Official season announcement is a deliberately narrow fallback. It may
+    # provide the home opener, but never fabricates the rest of the schedule.
+    article_url = "https://www.orebrohockey.se/article/yfqatew-3afc1/view"
+    r = requests.get(article_url, timeout=8, headers={"User-Agent": headers["User-Agent"]})
     r.raise_for_status()
-    return parse_orebro_hockey_article_html(r.text, source_url=url)
+    return parse_orebro_hockey_article_html(r.text, source_url=article_url)

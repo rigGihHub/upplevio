@@ -346,7 +346,7 @@ def load_events(api_key=None, include_visitsweden=True, include_conventum=True, 
         def fetch_orebro_hockey():
             from sports_sources import orebro_hockey_events
             rows = orebro_hockey_events()
-            return rows, [("Örebro Hockey", "Pilot", len(rows), "Officiellt publicerat spelschema · hemmamatcher i Behrn Arena")]
+            return rows, [("Örebro Hockey", "OK", len(rows), "Officiellt spelschema · endast hemmamatcher i Behrn Arena")]
         tasks.extend([
             SourceTask("osk", "ÖSK Fotboll", fetch_osk),
             SourceTask("orebro_hockey", "Örebro Hockey", fetch_orebro_hockey),

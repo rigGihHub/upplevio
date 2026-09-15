@@ -1,4 +1,8 @@
-from sports_sources import parse_osk_schedule_html, parse_orebro_hockey_article_html
+from sports_sources import (
+    parse_osk_schedule_html,
+    parse_orebro_hockey_article_html,
+    parse_orebro_hockey_schedule_payload,
+)
 
 
 def test_osk_imports_only_home_matches_at_behrn_arena():
@@ -43,3 +47,32 @@ def test_hockey_unknown_price_is_not_free():
     rows = parse_orebro_hockey_article_html(html, source_url="https://hockey.example/schedule")
     assert rows[0].price_status == "unknown"
     assert rows[0].price_min is None
+
+
+def test_hockey_schedule_only_emits_orebro_home_games_at_behrn():
+    payload = {"gameInfo": [
+        {
+            "uuid": "home-1", "startDateTime": "2026-09-24T18:00:00+02:00",
+            "homeTeam": {"teamNames": {"long": "Örebro HK"}},
+            "awayTeam": {"displayName": "Björklöven"},
+            "arena": {"name": "Behrn Arena"},
+        },
+        {
+            "uuid": "away-1", "startDateTime": "2026-09-19T18:00:00+02:00",
+            "homeTeam": {"displayName": "Färjestad BK"},
+            "awayTeam": {"displayName": "Örebro HK"},
+            "arena": {"name": "Löfbergs Arena"},
+        },
+        {
+            "uuid": "wrong-venue", "startDateTime": "2026-10-01T19:00:00+02:00",
+            "homeTeam": {"displayName": "Örebro HK"},
+            "awayTeam": {"displayName": "Luleå Hockey"},
+            "arena": {"name": "Okänd arena"},
+        },
+    ]}
+    rows = parse_orebro_hockey_schedule_payload(payload, source_url="https://hockey.example/schedule")
+    assert len(rows) == 1
+    assert rows[0].title == "Örebro HK – Björklöven"
+    assert rows[0].start_date == "2026-09-24"
+    assert rows[0].start_time == "18:00"
+    assert rows[0].official_url == "https://hockey.example/schedule"
