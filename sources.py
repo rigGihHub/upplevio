@@ -347,9 +347,13 @@ def load_events(api_key=None, include_visitsweden=True, include_conventum=True, 
             from sports_sources import orebro_hockey_events
             rows = orebro_hockey_events()
             return rows, [("Örebro Hockey", "OK", len(rows), "Officiellt spelschema · endast hemmamatcher i Behrn Arena")]
+        def fetch_local_club_sports():
+            from sports_sources import local_club_sport_events
+            return local_club_sport_events()
         tasks.extend([
             SourceTask("osk", "ÖSK Fotboll", fetch_osk),
             SourceTask("orebro_hockey", "Örebro Hockey", fetch_orebro_hockey),
+            SourceTask("local_club_sports", "Lokala sportklubbar", fetch_local_club_sports),
         ])
 
     if experimental_official_keys:

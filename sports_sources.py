@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import re
 from urllib.parse import urljoin
@@ -170,6 +171,94 @@ _MONTHS = {
     "januari": 1, "februari": 2, "mars": 3, "april": 4, "maj": 5, "juni": 6,
     "juli": 7, "augusti": 8, "september": 9, "oktober": 10, "november": 11, "december": 12,
 }
+
+_SHORT_MONTHS = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "maj": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "okt": 10, "nov": 11, "dec": 12,
+}
+
+
+def parse_laget_next_match_html(
+    html_text: str, *, source_key: str, source_url: str, team_name: str,
+    sport: str, today: date | None = None,
+) -> list[Event]:
+    """Parse one explicit next-match block from an official laget.se team page."""
+    lines = _clean_lines(html_text)
+    today = today or datetime.now().date()
+    local_venue_hints = (
+        "örebro", "idrottshuset", "behrn", "tegelbruket", "trängen",
+        "eyravallen", "rostahallen", "mellringehallen", "birgittaskolan",
+    )
+    for i, line in enumerate(lines):
+        if not line.lower().startswith("nästa match"):
+            continue
+        nearby = lines[i:i + 8]
+        date_index = next((j for j, value in enumerate(nearby)
+                           if re.fullmatch(r"\d{1,2}\s+[a-zåäö]{3},\s*\d{1,2}:\d{2}", value, re.I)), None)
+        if date_index is None or date_index < 1 or date_index + 1 >= len(nearby):
+            continue
+        opponent = nearby[date_index - 1]
+        venue = nearby[date_index + 1]
+        if not any(hint in venue.lower() for hint in local_venue_hints):
+            continue
+        match = re.fullmatch(r"(\d{1,2})\s+([a-zåäö]{3}),\s*(\d{1,2}:\d{2})", nearby[date_index], re.I)
+        if not match:
+            continue
+        month = _SHORT_MONTHS.get(match.group(2).lower())
+        if not month:
+            continue
+        day = int(match.group(1))
+        year = today.year + (1 if month < today.month - 6 else 0)
+        start_date = f"{year:04d}-{month:02d}-{day:02d}"
+        title = f"{team_name} – {opponent}"
+        return [_event(
+            source_key=source_key,
+            external_id=f"{title}|{start_date}|{match.group(3)}|{venue}",
+            title=title,
+            start_date=start_date,
+            start_time=match.group(3),
+            venue=venue,
+            city="Örebro",
+            url=source_url,
+            tags=["Sport", sport],
+            quality_note="Nästa lokala match verifierad på föreningens officiella lagsida",
+        )]
+    return []
+
+
+def local_club_sport_events() -> tuple[list[Event], list[tuple[str, str, int, str]]]:
+    """Fetch conservative next-match coverage for major Örebro club sports."""
+    sources = [
+        ("kfum_orebro_basket", "KFUM Örebro Basket", "Basket", "https://www.kfumorebrobasket.se/"),
+        ("kfum_orebro_volley", "KFUM Örebro Volley", "Volleyboll", "https://www.laget.se/KFUMOrebroVolley"),
+        ("osk_handboll_dam", "ÖSK Handboll Dam", "Handboll", "https://www.laget.se/oskhdam"),
+        ("osk_handboll_herr", "ÖSK Handboll Herr", "Handboll", "https://www.laget.se/OSKH"),
+        ("kif_orebro", "KIF Örebro DFF", "Fotboll", "https://www.kiforebro.se/"),
+        ("orebro_black_knights", "Örebro Black Knights", "Amerikansk fotboll", "https://www.laget.se/OrebroBlackKnights"),
+        ("ibf_orebro", "IBF Örebro", "Innebandy", "https://www.orebroinnebandy.se/"),
+    ]
+    def fetch_one(source_spec):
+        key, name, sport, url = source_spec
+        try:
+            response = requests.get(url, timeout=8, headers={"User-Agent": "Upplevio/0.82 (+event discovery)"})
+            response.raise_for_status()
+            rows = parse_laget_next_match_html(
+                response.text, source_key=key, source_url=url, team_name=name, sport=sport,
+            )
+            return rows, (name, "OK" if rows else "Inget lokalt", len(rows), f"Officiell lagsida · nästa verifierade lokala {sport.lower()}match")
+        except requests.RequestException as exc:
+            return [], (name, "Fel", 0, f"Källan svarade inte: {type(exc).__name__}")
+
+    events: list[Event] = []
+    health: list[tuple[str, str, int, str]] = []
+    # A slow club page must not serialize the entire discovery startup.
+    with ThreadPoolExecutor(max_workers=len(sources)) as executor:
+        futures = [executor.submit(fetch_one, source) for source in sources]
+        for future in as_completed(futures):
+            rows, status = future.result()
+            events.extend(rows)
+            health.append(status)
+    return events, health
 
 
 def parse_orebro_hockey_article_html(html_text: str, *, source_url: str) -> list[Event]:

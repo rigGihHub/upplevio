@@ -1,8 +1,10 @@
 from sports_sources import (
+    parse_laget_next_match_html,
     parse_osk_schedule_html,
     parse_orebro_hockey_article_html,
     parse_orebro_hockey_schedule_payload,
 )
+from datetime import date
 
 
 def test_osk_imports_only_home_matches_at_behrn_arena():
@@ -76,3 +78,24 @@ def test_hockey_schedule_only_emits_orebro_home_games_at_behrn():
     assert rows[0].start_date == "2026-09-24"
     assert rows[0].start_time == "18:00"
     assert rows[0].official_url == "https://hockey.example/schedule"
+
+
+def test_laget_next_match_imports_explicit_local_match():
+    html = """<div>Nästa match för Herr A</div><div>Pirates Basketball</div>
+    <div>26 sep, 15:00</div><div>Idrottshuset, stora hallen</div>"""
+    rows = parse_laget_next_match_html(
+        html, source_key="kfum_orebro_basket", source_url="https://basket.example",
+        team_name="KFUM Örebro Basket", sport="Basket", today=date(2026, 9, 15),
+    )
+    assert len(rows) == 1
+    assert rows[0].title == "KFUM Örebro Basket – Pirates Basketball"
+    assert rows[0].start_date == "2026-09-26"
+    assert rows[0].venue == "Idrottshuset, stora hallen"
+
+
+def test_laget_next_match_rejects_away_or_unknown_location():
+    html = "<div>Nästa match</div><div>Motståndarna</div><div>20 sep, 14:00</div><div>Sporthallen, Västerås</div>"
+    assert parse_laget_next_match_html(
+        html, source_key="ibf_orebro", source_url="https://example.test",
+        team_name="IBF Örebro", sport="Innebandy", today=date(2026, 9, 15),
+    ) == []

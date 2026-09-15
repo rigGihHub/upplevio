@@ -49,7 +49,7 @@ from sources import load_events
 from ui_logic import DISCOVERY_DEFAULTS, compact_date_label, compact_location_label, date_matches, discovery_context_label, event_period_matches, price_label, price_matches
 from ui_performance import INITIAL_RESULT_LIMIT, RESULT_BATCH_SIZE, clamp_result_limit, event_id_signature, next_result_limit, remaining_result_count, result_filter_signature
 
-APP_VERSION = "0.81.0"
+APP_VERSION = "0.82.0"
 
 st.set_page_config(page_title="Upplevio", page_icon="✦", layout="wide")
 st.markdown(
@@ -842,7 +842,7 @@ if active_view == "Upptäck":
     context_text = discovery_context_label(origin_city, when, None if origin_city == "Hela Sverige" else radius_km, price_filter)
     st.markdown(f'<div class="result-summary"><b>{len(filtered)}</b> event · {safe(context_text)}</div>', unsafe_allow_html=True)
     if type_filter == "Sport" and origin_city == "Örebro":
-        st.caption("Sportresultatet bygger just nu på ÖSK Fotboll och Örebro Hockeys officiella hemmamatcher. Det är inte full täckning av all lokal sport.")
+        st.caption("Sport bevakas från officiella klubbkällor för fotboll, ishockey, basket, handboll, volleyboll, innebandy och amerikansk fotboll. Mindre serier och ungdomslag kan fortfarande saknas.")
 
     if not filtered:
         st.info("Inga event matchar exakt de här valen.")
