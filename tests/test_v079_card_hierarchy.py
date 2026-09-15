@@ -32,5 +32,5 @@ def test_repeated_dates_have_compact_badge_and_card_titles_are_clamped():
 
 def test_desktop_canvas_is_wider_and_district_descriptions_are_visually_reduced():
     t = text()
-    assert "max-width:1520px" in t
-    assert ".festival-district span{display:none}" in t
+    assert "max-width:1440px" in t
+    assert ".festival-districts{display:none}" in t

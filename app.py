@@ -49,7 +49,7 @@ from sources import load_events
 from ui_logic import DISCOVERY_DEFAULTS, compact_date_label, compact_location_label, date_matches, discovery_context_label, event_period_matches, price_label, price_matches
 from ui_performance import INITIAL_RESULT_LIMIT, RESULT_BATCH_SIZE, clamp_result_limit, event_id_signature, next_result_limit, remaining_result_count, result_filter_signature
 
-APP_VERSION = "0.79.1"
+APP_VERSION = "0.80.0"
 
 st.set_page_config(page_title="Upplevio", page_icon="✦", layout="wide")
 st.markdown(
@@ -86,7 +86,7 @@ html,body,[data-testid="stAppViewContainer"]{
   background-size:36px 36px;
   mask-image:linear-gradient(to bottom,black,transparent 78%);
 }
-.block-container{max-width:1520px;padding-top:.65rem;padding-bottom:4rem;position:relative;z-index:1}
+.block-container{max-width:1440px;padding-top:.5rem;padding-bottom:4rem;position:relative;z-index:1}
 [data-testid="stSidebar"]{
   background:linear-gradient(180deg,#0d0b1f,#111027);
   border-right:1px solid rgba(255,255,255,.09)
@@ -95,7 +95,7 @@ html,body,[data-testid="stAppViewContainer"]{
 [data-testid="stHeader"]{background:rgba(8,7,22,.72);backdrop-filter:blur(16px)}
 
 .hero{
-  position:relative; overflow:hidden; padding:22px 24px 20px; margin:2px 0 14px;
+  position:relative; overflow:hidden; padding:18px 22px 16px; margin:2px 0 10px;
   border:1px solid rgba(255,255,255,.18); border-radius:32px;
   background:
     radial-gradient(circle at 78% 20%,rgba(103,232,249,.19),transparent 26%),
@@ -119,8 +119,8 @@ html,body,[data-testid="stAppViewContainer"]{
   box-shadow:0 0 22px rgba(217,255,103,.22)
 }
 .hero h1{
-  max-width:780px;font-size:clamp(2.4rem,5vw,4.35rem);letter-spacing:-.065em;
-  line-height:.88;margin:.65rem 0 1rem;color:var(--ink);text-wrap:balance;
+  max-width:900px;font-size:clamp(2.2rem,4.2vw,3.75rem);letter-spacing:-.06em;
+  line-height:.94;margin:.45rem 0 .65rem;color:var(--ink);text-wrap:balance;
   text-shadow:0 0 30px rgba(255,79,216,.12)
 }
 .hero p{max-width:690px;color:#ddd6ee;font-size:1.03rem;line-height:1.55;margin-bottom:.3rem}
@@ -129,25 +129,25 @@ html,body,[data-testid="stAppViewContainer"]{
   color:var(--cyan);margin-top:.75rem
 }
 .future-marquee{
-  margin-top:12px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.18);
+  margin-top:9px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.18);
   font-size:.72rem;font-weight:850;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,249,235,.66)
 }
 .future-marquee span{color:var(--pink)}
 
 .flowbox{
   background:linear-gradient(145deg,rgba(23,21,47,.96),rgba(17,15,37,.96));
-  border:1px solid rgba(103,232,249,.19);border-radius:22px;padding:14px;margin:4px 0 14px;
+  border:1px solid rgba(103,232,249,.19);border-radius:20px;padding:12px;margin:4px 0 10px;
   box-shadow:0 16px 45px rgba(0,0,0,.18)
 }
 .flowbox strong{color:var(--gold);letter-spacing:.03em}
-.section-title{font-size:1.48rem;font-weight:900;letter-spacing:-.035em;margin:30px 0 10px;color:var(--ink)}
+.section-title{font-size:1.38rem;font-weight:900;letter-spacing:-.035em;margin:20px 0 8px;color:var(--ink)}
 .result-summary{color:var(--muted);margin:.35rem 0 1rem}
 
 .event-card{
   position:relative;overflow:hidden;
   background:linear-gradient(145deg,rgba(27,25,54,.97),rgba(18,16,39,.98));
-  border:1px solid rgba(255,255,255,.14);border-radius:24px;padding:17px;margin-bottom:10px;
-  min-height:205px;box-shadow:0 14px 35px rgba(0,0,0,.23);
+  border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:15px;margin-bottom:8px;
+  min-height:164px;box-shadow:0 12px 28px rgba(0,0,0,.2);
   transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease
 }
 .event-card::before{
@@ -184,12 +184,11 @@ html,body,[data-testid="stAppViewContainer"]{
 .badge-time-soon{
   background:var(--gold);color:#201604;border-color:transparent
 }
-.event-title{font-size:1.12rem;font-weight:900;letter-spacing:-.025em;margin:0 0 11px;line-height:1.22;color:var(--ink);min-height:2.72em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.quick-facts{display:grid;gap:7px}
-.quick-fact{display:flex;align-items:flex-start;gap:8px;color:#d5cfe3;font-size:.88rem;line-height:1.35}
+.event-title{font-size:1.18rem;font-weight:900;letter-spacing:-.025em;margin:0 0 10px;line-height:1.2;color:var(--ink);min-height:2.45em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.quick-facts{display:grid;gap:5px}
+.quick-fact{display:flex;align-items:flex-start;gap:8px;color:#d5cfe3;font-size:.9rem;line-height:1.3}
 .fact-icon{width:1.05rem;flex:0 0 1.05rem;text-align:center;color:var(--gold)}
 .fact-price{font-weight:900;color:var(--lime)}
-.source{font-size:.68rem;color:#8f87a8;margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .why{margin-top:.75rem;font-size:.8rem;font-weight:750;color:#b9f4fa}
 
 .inline-detail{
@@ -204,7 +203,7 @@ html,body,[data-testid="stAppViewContainer"]{
 /* Streamlit controls: futuristic but readable */
 div[data-testid="stButton"] button,
 div[data-testid="stLinkButton"] a{
-  border-radius:999px;min-height:36px;font-weight:850;
+  border-radius:999px;min-height:32px;font-weight:850;
   border:1px solid rgba(103,232,249,.26)!important;
   background:linear-gradient(135deg,rgba(28,25,58,.96),rgba(20,18,44,.96))!important;
   color:var(--ink)!important
@@ -249,7 +248,7 @@ h1,h2,h3,h4{color:var(--ink)}
   border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.055);
   transform:rotate(5deg);box-shadow:0 8px 18px rgba(0,0,0,.14)
 }
-.event-card .event-title{padding-right:48px}
+.event-card .event-title{padding-right:44px}
 .theme-music{--poster-a:#ff4fd8;--poster-b:#8b5cf6}
 .theme-sport{--poster-a:#67e8f9;--poster-b:#d9ff67}
 .theme-family{--poster-a:#ffd76a;--poster-b:#ff8ccf}
@@ -273,14 +272,12 @@ h1,h2,h3,h4{color:var(--ink)}
 
 .zone-chip{
   display:inline-flex;align-items:center;gap:6px;
-  margin:0 0 10px;padding:4px 8px;border-radius:999px;
+  margin:0;padding:4px 8px;border-radius:999px;
   font-size:.6rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;
   color:#100d21;background:var(--poster-b);
   box-shadow:0 0 16px color-mix(in srgb,var(--poster-b) 18%,transparent)
 }
-.festival-districts{
-  display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:8px 0 14px
-}
+.festival-districts{display:none}
 .festival-district{
   border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.035);
   border-radius:14px;padding:7px 10px;min-height:48px
@@ -290,15 +287,14 @@ h1,h2,h3,h4{color:var(--ink)}
 
 
 .nightline{
-  display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 14px;
-  padding:10px 12px;border:1px solid rgba(255,255,255,.1);
-  border-radius:18px;background:rgba(255,255,255,.028)
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px;
+  padding:0;border:0;background:transparent
 }
 .nightline-label{
   font-size:.64rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;
   color:var(--pink);margin-right:2px
 }
-.nightline-help{font-size:.7rem;color:var(--muted);margin:-7px 0 14px}
+.nightline-help{font-size:.72rem;color:var(--muted);margin:2px 0 8px}
 
 
 .tonight-mode{
@@ -364,12 +360,12 @@ h1,h2,h3,h4{color:var(--ink)}
 
 @media(max-width:800px){
   .block-container{padding-left:.75rem;padding-right:.75rem}
-  .hero{padding:25px 18px 24px;border-radius:26px}
-  .hero h1{font-size:3rem;max-width:100%}
+  .hero{padding:17px 16px 15px;border-radius:22px}
+  .hero h1{font-size:2.35rem;max-width:100%}
   .hero::before{width:220px;height:220px;right:-100px;top:-100px}
   .hero::after{display:none}
   .future-marquee{font-size:.62rem;letter-spacing:.08em}
-  .flowbox{padding:15px;border-radius:22px}
+  .flowbox{padding:11px;border-radius:18px}
   .event-card{min-height:auto;padding:15px;border-radius:21px}
   .event-title{font-size:1.13rem;padding-right:42px}.quick-fact{font-size:.89rem}.source{white-space:normal}
   .poster-sigil{width:36px;height:36px;right:11px;top:42px;font-size:1.1rem;border-radius:12px}
@@ -580,17 +576,9 @@ def card_markup(e, origin_city=None, rank_reasons=None):
     theme = event_visual_theme(e)
     zone_name, zone_icon = event_festival_zone(e)
     flags = []
-    if is_new(e):
-        flags.append('<span class="badge badge-new">NY</span>')
-    if e.price_status == "free":
-        flags.append('<span class="badge badge-free">GRATIS</span>')
-    if is_local_discovery_tip(e):
-        flags.append('<span class="badge">LOKALT TIPS</span>')
     if getattr(e, "is_sponsored", False):
         flags.append('<span class="badge">SPONSRAD</span>')
     alternate_dates = getattr(e, "_alternate_dates", []) or []
-    if alternate_dates:
-        flags.append(f'<span class="badge badge-dates">+{len(alternate_dates)} DATUM</span>')
     _showtime = showtime_status(e)
     if _showtime:
         _time_class = "badge-time-now" if _showtime.key == "now" else ("badge-time-soon" if _showtime.key == "soon" else "badge-time")
@@ -598,10 +586,18 @@ def card_markup(e, origin_city=None, rank_reasons=None):
     warning = status_label(e)
     if warning:
         flags.append(f'<span class="badge badge-warn">{safe(warning.upper())}</span>')
+    if e.price_status == "free":
+        flags.append('<span class="badge badge-free">GRATIS</span>')
+    if alternate_dates:
+        flags.append(f'<span class="badge badge-dates">+{len(alternate_dates)} DATUM</span>')
+    if is_new(e):
+        flags.append('<span class="badge badge-new">NY</span>')
+    if is_local_discovery_tip(e):
+        flags.append('<span class="badge">LOKALT TIPS</span>')
+    flags = flags[:2]
     dist, geo_confidence = distance_info(e, origin_city) if origin_city and origin_city != "Hela Sverige" else (None, "unknown")
     date_text = compact_date_label(e, today)
     place_text = compact_location_label(e, dist, approximate=(geo_confidence == "city"))
-    source_text = f'{", ".join(e.source_names)} · {verification_label(e)}'
     why_text = ""
     if rank_reasons:
         generic_reasons = {
@@ -614,16 +610,14 @@ def card_markup(e, origin_city=None, rank_reasons=None):
             why_text = f'<div class="why">Varför: {safe(distinctive[0])}</div>'
     return f"""<div class="event-card {theme['class']}">
     <div class="poster-sigil">{safe(theme['icon'])}</div>
-    <div class="zone-chip">{safe(zone_icon)} {safe(zone_name)}</div>
-    <div class="event-topline"><div class="event-kind">{safe(theme['label'])}</div><div class="event-flags">{''.join(flags)}</div></div>
+    <div class="event-topline"><div class="zone-chip">{safe(zone_icon)} {safe(zone_name)}</div><div class="event-flags">{''.join(flags)}</div></div>
     <div class="event-title">{safe(e.title)}</div>
     <div class="quick-facts">
       <div class="quick-fact"><span class="fact-icon">◷</span><span><b>{safe(date_text)}</b></span></div>
       <div class="quick-fact"><span class="fact-icon">⌖</span><span>{safe(place_text)}</span></div>
       <div class="quick-fact"><span class="fact-icon">◉</span><span class="fact-price">{safe(price_label(e))}</span></div>
     </div>
-    {why_text}
-    <div class="source">{safe(source_text)}</div></div>"""
+    {why_text}</div>"""
 
 
 def render_inline_details(e):
@@ -727,18 +721,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.markdown(
-    """<div class="festival-districts">
-<div class="festival-district"><b>♫ MAIN STAGE</b><span>Konserter, live och festival.</span></div>
-<div class="festival-district"><b>⚡ ARENA</b><span>Matcher och sport.</span></div>
-<div class="festival-district"><b>✦ FAMILY ZONE</b><span>Barn, lov och familj.</span></div>
-<div class="festival-district"><b>◇ NIGHT MARKET</b><span>Marknader, mässor och fynd.</span></div>
-<div class="festival-district"><b>✺ FOOD DISTRICT</b><span>Mat, dryck och smakupplevelser.</span></div>
-<div class="festival-district"><b>✧ HIDDEN GEMS</b><span>Sådant du annars hade missat.</span></div>
-</div>""",
-    unsafe_allow_html=True,
-)
-
 active_view = st.radio(
     "Vy", ["Upptäck", "Sparat", "Admin"], horizontal=True, label_visibility="collapsed", key="active_view"
 )
@@ -746,19 +728,13 @@ active_view = st.radio(
 if active_view == "Upptäck":
     if health_summary["has_public_warning"]:
         st.warning("Resultaten kan vara ofullständiga just nu. Någon datakälla behöver kontrolleras.")
-    st.markdown('<div class="flowbox">', unsafe_allow_html=True)
-    st.markdown("**🎪 Öppna festivalporten**")
-    st.markdown('<div class="nightline"><span class="nightline-label">NIGHTLINE</span></div>', unsafe_allow_html=True)
-    q1,q2,q3,q4,q5,q6,q7,q8 = st.columns(8)
+    st.markdown('<div class="nightline"><span class="nightline-label">SNABBVAL</span></div>', unsafe_allow_html=True)
+    q1, q2, q3, q4 = st.columns(4)
     _quick_buttons = [
-        (q1, "Go Now", "Go Now"),
-        (q2, "Last Minute", "Last Minute"),
-        (q3, "Ikväll", "Ikväll"),
-        (q4, "I helgen", "I helgen"),
-        (q5, "Gratis", "Gratis"),
-        (q6, "Nära vald stad", "Nära vald stad"),
-        (q7, "Hidden Gems", "Hidden Gems"),
-        (q8, "För familjen", "För familjen"),
+        (q1, "Nu & snart", "Go Now"),
+        (q2, "Ikväll", "Ikväll"),
+        (q3, "I helgen", "I helgen"),
+        (q4, "Gratis", "Gratis"),
     ]
     for _col, _label, _preset in _quick_buttons:
         with _col:
@@ -785,20 +761,18 @@ if active_view == "Upptäck":
     _active_preset = st.session_state.get("nightline_preset")
     if _active_preset:
         if _active_preset == "Go Now":
-            _preset_note = " · använder en försiktig planeringsmarginal utifrån tid till start och avstånd från vald stad, inte faktisk restid."
-        elif _active_preset == "Last Minute":
-            _preset_note = " · visar event med känd starttid om 30–180 minuter."
+            _preset_note = " · nära event med rimlig tid till start."
         elif _active_preset == "Ikväll":
-            _preset_note = " · visar event med känd starttid från 17:00 som ännu inte börjat."
+            _preset_note = " · event med verifierad starttid senare idag."
         else:
             _preset_note = ""
-        st.markdown(f'<div class="nightline-help">Aktivt snabbval: <b>{safe(_active_preset)}</b>{safe(_preset_note)} · ändra ett filter nedan när du vill.</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="nightline-help">Aktivt: <b>{safe(_active_preset)}</b>{safe(_preset_note)}</div>', unsafe_allow_html=True)
 
     city_choices = ["Hela Sverige"] + sorted(CITY_COORDS.keys())
     default_city = DISCOVERY_DEFAULTS["city"]
     if "discover_city" not in st.session_state:
         st.session_state["discover_city"] = default_city if default_city in city_choices else city_choices[0]
-    r1c1, r1c2 = st.columns(2)
+    r1c1, r1c2, r1c3, r1c4 = st.columns(4)
     with r1c1:
         origin_city = st.selectbox("📍 Var?", city_choices, key="discover_city")
     with r1c2:
@@ -807,13 +781,12 @@ if active_view == "Upptäck":
             st.session_state["discover_when"] = DISCOVERY_DEFAULTS["when"]
         when = st.selectbox("📅 När?", when_choices, key="discover_when")
 
-    r2c1, r2c2 = st.columns(2)
-    with r2c1:
+    with r1c3:
         radius_choices = [25, 50, 100, 200, 300]
         if "discover_radius" not in st.session_state:
             st.session_state["discover_radius"] = DISCOVERY_DEFAULTS["radius_km"]
         radius_km = st.selectbox("🚗 Hur långt?", radius_choices, key="discover_radius", disabled=(origin_city == "Hela Sverige"))
-    with r2c2:
+    with r1c4:
         price_choices = ["Alla priser", "Gratis", "Max 100 kr", "Max 250 kr", "Max 500 kr"]
         if "discover_price" not in st.session_state:
             st.session_state["discover_price"] = DISCOVERY_DEFAULTS["price"]
@@ -837,8 +810,6 @@ if active_view == "Upptäck":
         if st.session_state.get("nightline_preset") and st.button("Rensa snabbval", key="clear-nightline"):
             st.session_state["nightline_preset"] = None
             st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
     def matches(e):
         d = event_dt(e)
         _preset = st.session_state.get("nightline_preset")

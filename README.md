@@ -1,6 +1,6 @@
-# Upplevio v0.79.1
+# Upplevio v0.80.0
 
-Latest release candidate: Alternate Date Detail Guardrail. See PRODUCT_V0791.md.
+Latest release: Calm Discovery UI. See PRODUCT_V0800.md.
 
 # Upplevio v0.78.0
 
