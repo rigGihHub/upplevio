@@ -265,7 +265,7 @@ def visitsweden_events(page_size=100, max_pages=5):
         "truncated": truncated,
     }
 
-def load_events(api_key=None, include_visitsweden=True, include_conventum=True, include_visitorebro_editorial=True, include_orebro_sports=True, include_lov_orebro=True, include_city_orebro=True, include_orebro_culture=True, experimental_official_keys=None, experimental_collector_keys=None, experimental_entertainment_keys=None, include_demo=False):
+def load_events(api_key=None, include_visitsweden=True, include_conventum=True, include_visitorebro_editorial=True, include_orebro_sports=True, include_lov_orebro=True, include_city_orebro=True, include_orebro_culture=True, include_local_discovery=True, experimental_official_keys=None, experimental_collector_keys=None, experimental_entertainment_keys=None, include_demo=False):
     """Load independent sources concurrently while isolating source failures."""
     from source_fetch import SourceTask, run_source_tasks
 
@@ -337,6 +337,12 @@ def load_events(api_key=None, include_visitsweden=True, include_conventum=True, 
             status = "OK" if rows else "Säsongstom"
             return rows, [("Lov Örebro", status, len(rows), "Officiell kommunal lovkalender · barn, unga och lokala föreningsaktiviteter")]
         tasks.append(SourceTask("lov_orebro", "Lov Örebro", fetch_lov_orebro))
+
+    if include_local_discovery:
+        def fetch_local_discovery():
+            from candidate_local_sources import promoted_local_discovery_events
+            return promoted_local_discovery_events()
+        tasks.append(SourceTask("local_discovery", "Lokala discovery-källor", fetch_local_discovery))
 
     if include_orebro_sports:
         def fetch_osk():

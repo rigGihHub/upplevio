@@ -1,4 +1,5 @@
 from copy import deepcopy
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timezone
 import hashlib
 import re
@@ -621,18 +622,50 @@ def candidate_source_events(key, *, timeout=20, enrich_booking=True):
     return rows
 
 
-def fetch_candidate_sources(keys=("kulturkvarteret","wadkoping","orebro_university","orebro_county_museum","orebro_church","karlslund","makeriet")):
+def fetch_candidate_sources(keys=("kulturkvarteret","wadkoping","orebro_university","orebro_county_museum","orebro_church","karlslund","makeriet"), *, timeout=20, enrich_booking=True):
     rows=[]
     health=[]
-    for key in keys:
+    def fetch_one(key):
         cfg=CANDIDATES[key]
         try:
-            source_rows=candidate_source_events(key)
-            rows.extend(source_rows)
-            health.append({"source":cfg["name"],"status":"OK","events":len(source_rows),"error":None})
+            source_rows=candidate_source_events(key,timeout=timeout,enrich_booking=enrich_booking)
+            return source_rows,{"source":cfg["name"],"status":"OK","events":len(source_rows),"error":None}
         except Exception as exc:
-            health.append({"source":cfg["name"],"status":"Fel","events":0,"error":str(exc)[:180]})
+            return [],{"source":cfg["name"],"status":"Fel","events":0,"error":str(exc)[:180]}
+    with ThreadPoolExecutor(max_workers=min(7,len(keys))) as executor:
+        futures=[executor.submit(fetch_one,key) for key in keys]
+        for future in as_completed(futures):
+            source_rows,status=future.result()
+            rows.extend(source_rows)
+            health.append(status)
     return rows,health
+
+
+def promoted_local_discovery_events(*, today=None):
+    """Publish only locally valid rows from the audited frontier parsers."""
+    today=today or date.today()
+    rows,raw_health=fetch_candidate_sources(timeout=8,enrich_booking=False)
+    published=[]
+    for event in rows:
+        try:
+            end=date.fromisoformat(event.end_date or event.start_date)
+        except (TypeError,ValueError):
+            continue
+        if end < today or event.city != "Örebro" or not event.title.strip():
+            continue
+        if not (event.official_url or "").startswith(("https://","http://")):
+            continue
+        event.data_quality="source_verified"
+        event.quality_notes=[
+            note.replace("Kandidatimport – ", "Importerad från ").replace("Påverkar inte publik discovery", "Godkänd för publik discovery efter lokal kvalitetsgrind")
+            for note in event.quality_notes
+        ]
+        published.append(event)
+    health=[(
+        row["source"],row["status"],row["events"],
+        "Strikt lokal kalender · endast daterade publika event" if not row["error"] else row["error"],
+    ) for row in raw_health]
+    return published,health
 
 
 def candidate_value_audit(existing_events, candidate_events, *, today=None):
