@@ -19,25 +19,15 @@ def _date(value):
 
 
 def discovery_data_quality_assessment(event) -> dict:
-    """Return a narrow ranking gate assessment.
-
-    level:
-      - pass: no core-integrity problem
-      - review: suspicious consistency issue, diagnostic only
-      - restricted: may remain visible but cannot dominate top ranking
-    """
     restricted = []
     review = []
-
     title = (getattr(event, "title", "") or "").strip()
     start_raw = (getattr(event, "start_date", "") or "").strip()
     end_raw = (getattr(event, "end_date", "") or "").strip()
     venue = (getattr(event, "venue", "") or "").strip()
     city = (getattr(event, "city", "") or "").strip()
-
     start = _date(start_raw)
     end = _date(end_raw) if end_raw else None
-
     if not title:
         restricted.append("titel saknas")
     if not start:
@@ -48,21 +38,13 @@ def discovery_data_quality_assessment(event) -> dict:
         restricted.append("slutdatum ligger före startdatum")
     if not venue and not city:
         restricted.append("både venue och ort saknas")
-
     status = (getattr(event, "price_status", "unknown") or "unknown").strip().lower()
     price_min = getattr(event, "price_min", None)
     if status == "known" and price_min is None:
         review.append("prisstatus är känd men pris saknas")
     if status == "free" and price_min not in (None, 0, 0.0):
         review.append("gratisstatus och prisdata motsäger varandra")
-
-    if restricted:
-        level = "restricted"
-    elif review:
-        level = "review"
-    else:
-        level = "pass"
-
+    level = "restricted" if restricted else ("review" if review else "pass")
     return {
         "level": level,
         "restricted_reasons": restricted,
@@ -72,7 +54,6 @@ def discovery_data_quality_assessment(event) -> dict:
 
 
 def apply_discovery_quality_gate(score: int, event) -> tuple[int, str | None]:
-    """Cap only events with broken core integrity; never reward missing data."""
     assessment = discovery_data_quality_assessment(event)
     if assessment["level"] != "restricted":
         return int(score), None

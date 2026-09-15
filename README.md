@@ -1,6 +1,10 @@
-# Upplevio v0.32.0
+# Upplevio v0.79.1
 
-Latest release: Local Long-tail Source Expansion. See PRODUCT_V0320.md.
+Latest release candidate: Alternate Date Detail Guardrail. See PRODUCT_V0791.md.
+
+# Upplevio v0.78.0
+
+Latest release: Discovery Layout & Production Collapse. See PRODUCT_V0780.md.
 
 # Upplevio
 
@@ -243,7 +247,6 @@ Första evidensstödda parserfixarna: explicit `HH:MM – start` och explicit `E
 ## v0.75.0 – Parser Fix Impact Audit
 Replay-baserad före/efter-audit för v0.74-fixarna. Jämför samma HTML mot pre-v0.74 och aktuell parser, visar återvunna värden och regressioner utan att påstå live-effekt före deploy.
 
-## v0.77.0 — Discovery Data Quality Gate
-- Central dataintegritet kan nu begränsa toppranking utan att dölja event.
-- Sekundär metadata ger inget rankingstraff.
-- Ny admin-audit för pass/restricted/review.
+
+## v0.78.0 — Discovery Layout & Production Collapse
+Tvåkolumnslayout på desktop, kompaktare actions och discovery-only kollaps av upprepade föreställningar utan att slå ihop de underliggande eventdata-posterna.

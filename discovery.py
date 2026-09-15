@@ -255,10 +255,8 @@ def discovery_rank(event, origin_city=None, price_filter="Alla priser", query=""
 
     score, quality_reason = apply_discovery_quality_gate(score, event)
     if quality_reason:
-        # A core-integrity problem is important enough to surface in the short
-        # explanation. Secondary missing metadata never reaches this branch.
         reasons = [r for r in reasons if r != quality_reason]
-        reasons = (reasons[:2] + [quality_reason])
+        reasons = reasons[:2] + [quality_reason]
 
     # Keep explanations short enough for event cards.
     return DiscoveryRank(score=int(score), reasons=tuple(reasons[:3]), distance_km=dist)

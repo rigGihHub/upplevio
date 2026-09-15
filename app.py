@@ -10,7 +10,7 @@ from coverage import coverage_snapshot
 from benchmark import benchmark_report, benchmark_sample_quality, load_benchmark
 from geography import CITY_COORDS, distance_from_city, distance_info
 from db import event_first_seen_map, favorite_ids, record_event_sightings, toggle_favorite
-from dedupe import deduplicate, verification_label
+from dedupe import collapse_productions, deduplicate, verification_label
 from discovery import INTEREST_PROFILES, event_matches_query, rank_discovery
 from discovery_quality import discovery_quality_report
 from discovery_data_quality import discovery_data_quality_report
@@ -49,7 +49,7 @@ from sources import load_events
 from ui_logic import DISCOVERY_DEFAULTS, compact_date_label, compact_location_label, date_matches, discovery_context_label, event_period_matches, price_label, price_matches
 from ui_performance import INITIAL_RESULT_LIMIT, RESULT_BATCH_SIZE, clamp_result_limit, event_id_signature, next_result_limit, remaining_result_count, result_filter_signature
 
-APP_VERSION = "0.77.0"
+APP_VERSION = "0.79.1"
 
 st.set_page_config(page_title="Upplevio", page_icon="✦", layout="wide")
 st.markdown(
@@ -86,7 +86,7 @@ html,body,[data-testid="stAppViewContainer"]{
   background-size:36px 36px;
   mask-image:linear-gradient(to bottom,black,transparent 78%);
 }
-.block-container{max-width:1180px;padding-top:1rem;padding-bottom:5rem;position:relative;z-index:1}
+.block-container{max-width:1520px;padding-top:.65rem;padding-bottom:4rem;position:relative;z-index:1}
 [data-testid="stSidebar"]{
   background:linear-gradient(180deg,#0d0b1f,#111027);
   border-right:1px solid rgba(255,255,255,.09)
@@ -95,7 +95,7 @@ html,body,[data-testid="stAppViewContainer"]{
 [data-testid="stHeader"]{background:rgba(8,7,22,.72);backdrop-filter:blur(16px)}
 
 .hero{
-  position:relative; overflow:hidden; padding:32px 28px 30px; margin:2px 0 20px;
+  position:relative; overflow:hidden; padding:22px 24px 20px; margin:2px 0 14px;
   border:1px solid rgba(255,255,255,.18); border-radius:32px;
   background:
     radial-gradient(circle at 78% 20%,rgba(103,232,249,.19),transparent 26%),
@@ -119,7 +119,7 @@ html,body,[data-testid="stAppViewContainer"]{
   box-shadow:0 0 22px rgba(217,255,103,.22)
 }
 .hero h1{
-  max-width:780px;font-size:clamp(2.7rem,6vw,5.2rem);letter-spacing:-.065em;
+  max-width:780px;font-size:clamp(2.4rem,5vw,4.35rem);letter-spacing:-.065em;
   line-height:.88;margin:.65rem 0 1rem;color:var(--ink);text-wrap:balance;
   text-shadow:0 0 30px rgba(255,79,216,.12)
 }
@@ -129,14 +129,14 @@ html,body,[data-testid="stAppViewContainer"]{
   color:var(--cyan);margin-top:.75rem
 }
 .future-marquee{
-  margin-top:18px;padding-top:14px;border-top:1px dashed rgba(255,255,255,.18);
+  margin-top:12px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.18);
   font-size:.72rem;font-weight:850;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,249,235,.66)
 }
 .future-marquee span{color:var(--pink)}
 
 .flowbox{
   background:linear-gradient(145deg,rgba(23,21,47,.96),rgba(17,15,37,.96));
-  border:1px solid rgba(103,232,249,.19);border-radius:26px;padding:20px;margin:4px 0 20px;
+  border:1px solid rgba(103,232,249,.19);border-radius:22px;padding:14px;margin:4px 0 14px;
   box-shadow:0 16px 45px rgba(0,0,0,.18)
 }
 .flowbox strong{color:var(--gold);letter-spacing:.03em}
@@ -147,7 +147,7 @@ html,body,[data-testid="stAppViewContainer"]{
   position:relative;overflow:hidden;
   background:linear-gradient(145deg,rgba(27,25,54,.97),rgba(18,16,39,.98));
   border:1px solid rgba(255,255,255,.14);border-radius:24px;padding:17px;margin-bottom:10px;
-  min-height:184px;box-shadow:0 14px 35px rgba(0,0,0,.23);
+  min-height:205px;box-shadow:0 14px 35px rgba(0,0,0,.23);
   transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease
 }
 .event-card::before{
@@ -171,6 +171,7 @@ html,body,[data-testid="stAppViewContainer"]{
 }
 .badge-new{background:var(--pink);color:#160b20;border-color:transparent;box-shadow:0 0 16px rgba(255,79,216,.22)}
 .badge-free{background:var(--lime);color:#12160a;border-color:transparent}
+.badge-dates{background:rgba(167,139,250,.16);color:#ddd2ff;border-color:rgba(167,139,250,.32)}
 .badge-warn{background:var(--gold);color:#211704;border-color:transparent}
 
 .badge-time{
@@ -183,12 +184,12 @@ html,body,[data-testid="stAppViewContainer"]{
 .badge-time-soon{
   background:var(--gold);color:#201604;border-color:transparent
 }
-.event-title{font-size:1.18rem;font-weight:900;letter-spacing:-.025em;margin:0 0 13px;line-height:1.18;color:var(--ink)}
+.event-title{font-size:1.12rem;font-weight:900;letter-spacing:-.025em;margin:0 0 11px;line-height:1.22;color:var(--ink);min-height:2.72em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .quick-facts{display:grid;gap:7px}
 .quick-fact{display:flex;align-items:flex-start;gap:8px;color:#d5cfe3;font-size:.88rem;line-height:1.35}
 .fact-icon{width:1.05rem;flex:0 0 1.05rem;text-align:center;color:var(--gold)}
 .fact-price{font-weight:900;color:var(--lime)}
-.source{font-size:.69rem;color:#8f87a8;margin-top:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.source{font-size:.68rem;color:#8f87a8;margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .why{margin-top:.75rem;font-size:.8rem;font-weight:750;color:#b9f4fa}
 
 .inline-detail{
@@ -196,13 +197,14 @@ html,body,[data-testid="stAppViewContainer"]{
   border-radius:18px;padding:13px 14px;margin:2px 0 9px;
   font-size:.88rem;line-height:1.55;color:#d8d2e7
 }
+.alternate-dates{margin:.65rem 0 0;padding:.6rem .7rem;border-left:2px solid rgba(167,139,250,.55);color:#ddd2ff}
 .inline-detail p{margin:.7rem 0 0}.detail-trust{font-size:.75rem;color:#928aa9}
 .detail-box{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:22px;margin-top:12px}
 
 /* Streamlit controls: futuristic but readable */
 div[data-testid="stButton"] button,
 div[data-testid="stLinkButton"] a{
-  border-radius:999px;min-height:42px;font-weight:850;
+  border-radius:999px;min-height:36px;font-weight:850;
   border:1px solid rgba(103,232,249,.26)!important;
   background:linear-gradient(135deg,rgba(28,25,58,.96),rgba(20,18,44,.96))!important;
   color:var(--ink)!important
@@ -271,20 +273,20 @@ h1,h2,h3,h4{color:var(--ink)}
 
 .zone-chip{
   display:inline-flex;align-items:center;gap:6px;
-  margin:0 0 10px;padding:5px 8px;border-radius:999px;
-  font-size:.62rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;
+  margin:0 0 10px;padding:4px 8px;border-radius:999px;
+  font-size:.6rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;
   color:#100d21;background:var(--poster-b);
   box-shadow:0 0 16px color-mix(in srgb,var(--poster-b) 18%,transparent)
 }
 .festival-districts{
-  display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0 22px
+  display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:8px 0 14px
 }
 .festival-district{
   border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.035);
-  border-radius:18px;padding:12px 14px;min-height:78px
+  border-radius:14px;padding:7px 10px;min-height:48px
 }
 .festival-district b{display:block;color:var(--ink);font-size:.82rem;letter-spacing:.03em;margin-bottom:4px}
-.festival-district span{color:var(--muted);font-size:.72rem;line-height:1.35}
+.festival-district span{display:none}
 
 
 .nightline{
@@ -355,6 +357,10 @@ h1,h2,h3,h4{color:var(--ink)}
   background:var(--cyan);color:#071419;font-size:.62rem;font-weight:950;letter-spacing:.08em;text-transform:uppercase
 }
 .go-now-meta{font-size:.75rem;color:#d6f7fb;margin:-2px 0 8px}
+
+@media(max-width:1100px) and (min-width:801px){
+  .festival-districts{grid-template-columns:repeat(3,1fr)}
+}
 
 @media(max-width:800px){
   .block-container{padding-left:.75rem;padding-right:.75rem}
@@ -582,6 +588,9 @@ def card_markup(e, origin_city=None, rank_reasons=None):
         flags.append('<span class="badge">LOKALT TIPS</span>')
     if getattr(e, "is_sponsored", False):
         flags.append('<span class="badge">SPONSRAD</span>')
+    alternate_dates = getattr(e, "_alternate_dates", []) or []
+    if alternate_dates:
+        flags.append(f'<span class="badge badge-dates">+{len(alternate_dates)} DATUM</span>')
     _showtime = showtime_status(e)
     if _showtime:
         _time_class = "badge-time-now" if _showtime.key == "now" else ("badge-time-soon" if _showtime.key == "soon" else "badge-time")
@@ -592,10 +601,17 @@ def card_markup(e, origin_city=None, rank_reasons=None):
     dist, geo_confidence = distance_info(e, origin_city) if origin_city and origin_city != "Hela Sverige" else (None, "unknown")
     date_text = compact_date_label(e, today)
     place_text = compact_location_label(e, dist, approximate=(geo_confidence == "city"))
-    source_text = f'{verification_label(e)} · {", ".join(e.source_names)}'
+    source_text = f'{", ".join(e.source_names)} · {verification_label(e)}'
     why_text = ""
     if rank_reasons:
-        why_text = f'<div class="why">Varför högt: {safe(" · ".join(rank_reasons))}</div>'
+        generic_reasons = {
+            "mycket nära", "nära", "rimligt nära", "inom vald radie",
+            "händer idag", "händer snart", "den närmaste veckan",
+            "inom två veckor", "inom en månad",
+        }
+        distinctive = [reason for reason in rank_reasons if reason not in generic_reasons]
+        if distinctive:
+            why_text = f'<div class="why">Varför: {safe(distinctive[0])}</div>'
     return f"""<div class="event-card {theme['class']}">
     <div class="poster-sigil">{safe(theme['icon'])}</div>
     <div class="zone-chip">{safe(zone_icon)} {safe(zone_name)}</div>
@@ -612,6 +628,15 @@ def card_markup(e, origin_city=None, rank_reasons=None):
 
 def render_inline_details(e):
     date_text = compact_date_label(e, today)
+    alternate_events = getattr(e, "_alternate_events", []) or []
+    alternate_dates_markup = ""
+    if alternate_events:
+        alternate_labels = [compact_date_label(item, today) for item in alternate_events]
+        alternate_dates_markup = (
+            '<div class="alternate-dates"><b>Fler datum</b><br>'
+            + "<br>".join(safe(label) for label in alternate_labels)
+            + "</div>"
+        )
     st.markdown(
         f"""<div class="inline-detail"><b>{safe(date_text)}</b><br>
         {safe(e.venue or "Plats ej angiven")}{safe((", " + e.city) if e.city else "")}<br>
@@ -619,6 +644,7 @@ def render_inline_details(e):
         {f'<span>🚪 Dörrar/insläpp {safe(e.door_time)}</span><br>' if getattr(e, "door_time", None) else ''}
         {f'<span>◌ Åldersgräns: {safe(e.age_limit)}</span><br>' if getattr(e, "age_limit", None) else ''}
         <span class="detail-trust">{safe(verification_label(e))} · {safe(", ".join(e.source_names))}</span>
+        {alternate_dates_markup}
         {f'<p>{safe(e.description)}</p>' if e.description else ''}</div>""",
         unsafe_allow_html=True,
     )
@@ -654,6 +680,35 @@ def render_measured_details(e, *, surface: str):
                 },
             )
         st.rerun()
+    if st.session_state.get(state_key, False):
+        render_inline_details(e)
+
+
+def render_card_actions(e, *, surface: str):
+    """Compact action row: details and save share one row under the card."""
+    state_key = f"details-open-{surface}-{e.id}"
+    is_open = bool(st.session_state.get(state_key, False))
+    detail_label = "Dölj" if is_open else "Detaljer"
+    a1, a2 = st.columns([4, 1])
+    with a1:
+        if st.button(detail_label, key=f"details-btn-{surface}-{e.id}", use_container_width=True):
+            new_state = not is_open
+            st.session_state[state_key] = new_state
+            if new_state:
+                record_action(
+                    "activity_open", event_id=e.id, partner=getattr(e, "booking_partner", None),
+                    context={
+                        "source": ", ".join(e.source_names or []) or "Okänd källa",
+                        "event_type": e.event_type or "Okänd typ", "surface": surface,
+                    },
+                )
+            st.rerun()
+    with a2:
+        save_label = "♥" if e.id in fav_ids else "♡"
+        save_help = "Ta bort från sparat" if e.id in fav_ids else "Spara event"
+        if st.button(save_label, key=f"save-{surface}-{e.id}", use_container_width=True, help=save_help):
+            toggle_favorite(e.id)
+            st.rerun()
     if st.session_state.get(state_key, False):
         render_inline_details(e)
 
@@ -808,8 +863,10 @@ if active_view == "Upptäck":
 
     filtered = [e for e in future_events if matches(e)]
     ranked_results = rank_discovery(filtered, origin_city=origin_city, price_filter=price_filter, query=query, today=today, interests=interests)
-    filtered = [e for _, e in ranked_results]
     rank_reasons = {e.id: rank.reasons for rank, e in ranked_results}
+    # Discovery shows one card per production. Repeated performances remain separate in the
+    # underlying event model and can still be inspected via source/admin diagnostics.
+    filtered = collapse_productions([e for _, e in ranked_results])
 
     context_text = discovery_context_label(origin_city, when, None if origin_city == "Hela Sverige" else radius_km, price_filter)
     st.markdown(f'<div class="result-summary"><b>{len(filtered)}</b> event · {safe(context_text)}</div>', unsafe_allow_html=True)
@@ -839,7 +896,7 @@ if active_view == "Upptäck":
                     continue
                 st.markdown(f"**{suggestion.title}**")
                 st.caption(suggestion.explanation)
-                cols = st.columns(min(3, len(fresh_events)))
+                cols = st.columns(min(2, len(fresh_events)))
                 for i, e in enumerate(fresh_events):
                     shown_fallback_ids.add(e.id)
                     with cols[i % len(cols)]:
@@ -848,7 +905,7 @@ if active_view == "Upptäck":
             st.caption("Upplevio hittar inga nära alternativ utan att ändra sökningen mer än rimligt. Prova att ta bort sökord eller eventtyp om du vill bredda ytterligare.")
     else:
         st.markdown('<div class="section-title">✦ På scen för dig</div>', unsafe_allow_html=True)
-        st.caption("Varje event visas en gång. NY och GRATIS markeras direkt på kortet.")
+        st.caption("En produktion per kort. Fler föreställningsdatum samlas på samma kort; NY och GRATIS markeras direkt.")
         filter_signature = result_filter_signature(
             origin_city=origin_city, when=when, radius_km=None if origin_city == "Hela Sverige" else radius_km,
             price_filter=price_filter, query=query, type_filter=type_filter, only_new=only_new, interests=interests,
@@ -884,7 +941,7 @@ if active_view == "Upptäck":
                 </div>""",
                 unsafe_allow_html=True,
             )
-            _gn_cols = st.columns(min(3, len(_go_now_picks)))
+            _gn_cols = st.columns(min(2, len(_go_now_picks)))
             for _idx, _e in enumerate(_go_now_picks):
                 with _gn_cols[_idx % len(_gn_cols)]:
                     _dist = distance_from_city(_e, origin_city) if origin_city != "Hela Sverige" else None
@@ -899,11 +956,7 @@ if active_view == "Upptäck":
                     st.markdown('<div class="go-now-label">GO NOW</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="go-now-meta">{safe(" · ".join([x for x in _parts if x]))}</div>', unsafe_allow_html=True)
                     st.markdown(card_markup(_e, origin_city, rank_reasons.get(_e.id)), unsafe_allow_html=True)
-                    render_measured_details(_e, surface="go_now")
-                    _label = "♥ Sparad" if _e.id in fav_ids else "♡ Spara"
-                    if st.button(_label, key=f"save-go-now-{_e.id}", use_container_width=True):
-                        toggle_favorite(_e.id)
-                        st.rerun()
+                    render_card_actions(_e, surface="go_now")
             if _main_pool:
                 st.markdown('<div class="section-title">Fler möjliga att planera nu</div>', unsafe_allow_html=True)
 
@@ -918,7 +971,7 @@ if active_view == "Upptäck":
                 </div>""",
                 unsafe_allow_html=True,
             )
-            _lm_cols = st.columns(min(3, len(_last_minute_picks)))
+            _lm_cols = st.columns(min(2, len(_last_minute_picks)))
             for _idx, _e in enumerate(_last_minute_picks):
                 with _lm_cols[_idx % len(_lm_cols)]:
                     _info = last_minute_info(_e)
@@ -933,11 +986,7 @@ if active_view == "Upptäck":
                     st.markdown('<div class="last-minute-label">LAST MINUTE</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="last-minute-meta">{safe(" · ".join([x for x in _parts if x]))}</div>', unsafe_allow_html=True)
                     st.markdown(card_markup(_e, origin_city, rank_reasons.get(_e.id)), unsafe_allow_html=True)
-                    render_measured_details(_e, surface="last_minute")
-                    _label = "♥ Sparad" if _e.id in fav_ids else "♡ Spara"
-                    if st.button(_label, key=f"save-last-minute-{_e.id}", use_container_width=True):
-                        toggle_favorite(_e.id)
-                        st.rerun()
+                    render_card_actions(_e, surface="last_minute")
             if _main_pool:
                 st.markdown('<div class="section-title">Fler som börjar snart</div>', unsafe_allow_html=True)
 
@@ -952,7 +1001,7 @@ if active_view == "Upptäck":
                 </div>""",
                 unsafe_allow_html=True,
             )
-            _pick_cols = st.columns(min(3, len(_tonight_picks)))
+            _pick_cols = st.columns(min(2, len(_tonight_picks)))
             for _idx, _pick in enumerate(_tonight_picks):
                 _e = _pick.event
                 with _pick_cols[_idx % len(_pick_cols)]:
@@ -962,11 +1011,7 @@ if active_view == "Upptäck":
                     if _summary:
                         st.markdown(f'<div class="tonight-summary">{safe(_summary)}</div>', unsafe_allow_html=True)
                     st.markdown(card_markup(_e, origin_city, rank_reasons.get(_e.id)), unsafe_allow_html=True)
-                    render_measured_details(_e, surface="tonight")
-                    _label = "♥ Sparad" if _e.id in fav_ids else "♡ Spara"
-                    if st.button(_label, key=f"save-tonight-{_e.id}", use_container_width=True):
-                        toggle_favorite(_e.id)
-                        st.rerun()
+                    render_card_actions(_e, surface="tonight")
             if _main_pool:
                 st.markdown('<div class="section-title">Fler ikväll</div>', unsafe_allow_html=True)
 
@@ -993,15 +1038,11 @@ if active_view == "Upptäck":
                     },
                 )
                 _seen_impressions.add(_imp_key)
-        cols = st.columns(3)
+        cols = st.columns(2)
         for i, e in enumerate(visible_events):
-            with cols[i % 3]:
+            with cols[i % len(cols)]:
                 st.markdown(card_markup(e, origin_city, rank_reasons.get(e.id)), unsafe_allow_html=True)
-                render_measured_details(e, surface="discover")
-                label = "♥ Sparad" if e.id in fav_ids else "♡ Spara"
-                if st.button(label, key=f"save-{e.id}", use_container_width=True):
-                    toggle_favorite(e.id)
-                    st.rerun()
+                render_card_actions(e, surface="discover")
 
         remaining = remaining_result_count(len(_main_pool), visible_count)
         if remaining:
@@ -1016,14 +1057,11 @@ elif active_view == "Sparat":
     if not saved:
         st.info("Du har inte sparat några event ännu.")
     else:
-        cols = st.columns(3)
+        cols = st.columns(2)
         for i, e in enumerate(saved):
-            with cols[i % 3]:
+            with cols[i % len(cols)]:
                 st.markdown(card_markup(e), unsafe_allow_html=True)
-                render_measured_details(e, surface="saved")
-                if st.button("Ta bort sparad", key=f"saved-remove-{e.id}", use_container_width=True):
-                    toggle_favorite(e.id)
-                    st.rerun()
+                render_card_actions(e, surface="saved")
 
 elif active_view == "Admin":
     st.markdown('<div class="admin-note">Kontrollrum · datakvalitet, källor och teknisk diagnostik. Den här informationen påverkar inte den vanliga användarresan.</div>', unsafe_allow_html=True)

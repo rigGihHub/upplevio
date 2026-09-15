@@ -85,6 +85,68 @@ def duplicate_score(a, b):
     return min(score, 1.0)
 
 
+def production_identity(event):
+    """Normalized title identity used only to reduce repeated productions in discovery."""
+    return normalize_text(getattr(event, "title", ""))
+
+
+def _repeatable_production(event):
+    """Limit cross-date collapsing to staged productions where repeated dates are expected."""
+    tags = getattr(event, "tags", None) or []
+    if isinstance(tags, str):
+        tags = [tags]
+    text = normalize_text(" ".join([
+        getattr(event, "event_type", "") or "",
+        getattr(event, "category", "") or "",
+        *tags,
+    ]))
+    return any(word in text for word in ("teater", "scen", "show", "musikal", "forestallning", "dans"))
+
+
+def same_production(a, b):
+    """True for repeated staged productions at a non-contradictory city/venue."""
+    if not (_repeatable_production(a) and _repeatable_production(b)):
+        return False
+    title_a, title_b = production_identity(a), production_identity(b)
+    if not title_a or not title_b:
+        return False
+    title_match = max(similarity(title_a, title_b), _token_overlap(title_a, title_b))
+    if title_match < 0.92:
+        return False
+    city_a, city_b = normalize_text(getattr(a, "city", "")), normalize_text(getattr(b, "city", ""))
+    if city_a and city_b and city_a != city_b:
+        return False
+    venue_a, venue_b = normalize_text(getattr(a, "venue", "")), normalize_text(getattr(b, "venue", ""))
+    if venue_a and venue_b and similarity(venue_a, venue_b) < 0.82:
+        return False
+    return True
+
+
+def collapse_productions(events):
+    """Keep one discovery card per staged production and preserve alternative dates as presentation metadata."""
+    collapsed = []
+    for event in events:
+        representative = next((existing for existing in collapsed if same_production(existing, event)), None)
+        if representative is None:
+            representative = event
+            setattr(representative, "_alternate_dates", [])
+            setattr(representative, "_alternate_events", [])
+            collapsed.append(representative)
+            continue
+        dates = getattr(representative, "_alternate_dates", [])
+        candidate_date = getattr(event, "start_date", None)
+        if candidate_date and candidate_date != getattr(representative, "start_date", None) and candidate_date not in dates:
+            dates.append(candidate_date)
+            dates.sort()
+        setattr(representative, "_alternate_dates", dates)
+        alternate_events = getattr(representative, "_alternate_events", [])
+        if not any(getattr(existing, "id", None) == getattr(event, "id", None) for existing in alternate_events):
+            alternate_events.append(event)
+            alternate_events.sort(key=lambda item: (getattr(item, "start_date", "") or "", getattr(item, "start_time", "") or ""))
+        setattr(representative, "_alternate_events", alternate_events)
+    return collapsed
+
+
 _SOURCE_BY_NAME = {normalize_text(s.name): s for s in SOURCES}
 # Aliases used in Event.source_names versus registry display names.
 _SOURCE_ALIASES = {
