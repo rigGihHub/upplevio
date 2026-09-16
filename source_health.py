@@ -115,5 +115,5 @@ def source_health_summary(assessments: Sequence[SourceHealthAssessment]) -> dict
         "degraded_core": degraded_core,
         # Supplemental and long-tail failures remain visible in Admin. A public
         # warning is reserved for broad discovery degradation, not one slow venue.
-        "has_public_warning": bool(core) and (not healthy_core or len(degraded_core) >= 3),
+        "has_public_warning": bool(core) and len(healthy_core) < 2,
     }

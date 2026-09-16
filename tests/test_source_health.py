@@ -25,7 +25,8 @@ def test_single_supplemental_failure_stays_in_admin_without_public_warning():
     report = assess_source_health([
         ("Visit Sweden", "Fel", 0, "Importen misslyckades"),
         ("Tickster Örebro", "OK", 12, "Publik lista"),
-    ], [event(source="Tickster Örebro")])
+        ("Örebro Teater", "OK", 6, "Kalender"),
+    ], [event(source="Tickster Örebro"), event(source="Örebro Teater")])
     summary = source_health_summary(report)
     assert report[0].state == "Fel"
     assert summary["has_public_warning"] is False
