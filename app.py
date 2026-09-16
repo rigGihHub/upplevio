@@ -49,7 +49,7 @@ from sources import load_events
 from ui_logic import DISCOVERY_DEFAULTS, compact_date_label, compact_location_label, date_matches, discovery_context_label, event_period_matches, price_label, price_matches
 from ui_performance import INITIAL_RESULT_LIMIT, RESULT_BATCH_SIZE, clamp_result_limit, event_id_signature, next_result_limit, remaining_result_count, result_filter_signature
 
-APP_VERSION = "0.84.0"
+APP_VERSION = "0.85.0"
 
 st.set_page_config(page_title="Upplevio", page_icon="✦", layout="wide")
 st.markdown(
@@ -432,7 +432,10 @@ entertainment_keys = ["showtic"] if experimental_entertainment else []
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def cached_load_events(api_key_value, official_keys, collector_source_keys, entertainment_source_keys, include_demo_value):
+def cached_load_events(api_key_value, official_keys, collector_source_keys, entertainment_source_keys, include_demo_value, source_cache_version):
+    # Invalidate transitive source changes immediately on deploy. Streamlit hashes
+    # this wrapper, but cannot see that an imported source adapter changed.
+    del source_cache_version
     return load_events(
         api_key_value,
         include_visitsweden=True,
@@ -451,6 +454,7 @@ with st.spinner("Hämtar aktuella evenemang…"):
         tuple(collector_keys),
         tuple(entertainment_keys),
         demo_mode,
+        APP_VERSION,
     )
 
 @st.cache_data(ttl=900, show_spinner=False)

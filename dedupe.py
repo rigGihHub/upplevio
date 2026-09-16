@@ -105,18 +105,29 @@ def _repeatable_production(event):
 
 def same_production(a, b):
     """True for repeated staged productions at a non-contradictory city/venue."""
-    if not (_repeatable_production(a) and _repeatable_production(b)):
-        return False
     title_a, title_b = production_identity(a), production_identity(b)
     if not title_a or not title_b:
         return False
     title_match = max(similarity(title_a, title_b), _token_overlap(title_a, title_b))
     if title_match < 0.92:
         return False
+    repeatable_a, repeatable_b = _repeatable_production(a), _repeatable_production(b)
+    exact_title = title_a == title_b
+    interval_a = bool(getattr(a, "end_date", None) and getattr(a, "end_date", None) != getattr(a, "start_date", None))
+    interval_b = bool(getattr(b, "end_date", None) and getattr(b, "end_date", None) != getattr(b, "start_date", None))
+    # Broad calendars sometimes publish a generic date range while venue calendars
+    # publish the individual staged performances. Treat the exact-title range only
+    # as a presentation alias; underlying event deduplication remains untouched.
+    if not ((repeatable_a and repeatable_b) or (exact_title and ((repeatable_a and interval_b) or (repeatable_b and interval_a)))):
+        return False
     city_a, city_b = normalize_text(getattr(a, "city", "")), normalize_text(getattr(b, "city", ""))
     if city_a and city_b and city_a != city_b:
         return False
     venue_a, venue_b = normalize_text(getattr(a, "venue", "")), normalize_text(getattr(b, "venue", ""))
+    if venue_a and venue_a == city_a:
+        venue_a = ""
+    if venue_b and venue_b == city_b:
+        venue_b = ""
     if venue_a and venue_b and similarity(venue_a, venue_b) < 0.82:
         return False
     return True

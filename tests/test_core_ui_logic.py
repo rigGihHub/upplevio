@@ -1,6 +1,6 @@
 from datetime import date
 from models import Event
-from ui_logic import date_matches, price_matches, price_label
+from ui_logic import compact_date_label, date_matches, price_matches, price_label
 
 
 def ev(**kw):
@@ -33,6 +33,11 @@ def test_weekend_preset_uses_upcoming_weekend():
     assert date_matches(date(2026, 9, 5), "I helgen", today)
     assert date_matches(date(2026, 9, 6), "I helgen", today)
     assert not date_matches(date(2026, 9, 7), "I helgen", today)
+
+
+def test_compact_date_label_marks_started_interval_as_ongoing():
+    e = ev(start_date="2026-05-14", end_date="2026-10-11")
+    assert compact_date_label(e, date(2026, 9, 16)) == "Pågår till sön 11 okt"
 
 
 def test_ticketmaster_price_range_is_normalized():

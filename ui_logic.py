@@ -101,6 +101,12 @@ def compact_date_label(event, today: date) -> str:
         start = date.fromisoformat(event.start_date)
     except Exception:
         return "Datum saknas"
+    try:
+        end = date.fromisoformat(event.end_date) if getattr(event, "end_date", None) else None
+    except Exception:
+        end = None
+    if start < today and end and end >= today:
+        return f"Pågår till {SWEDISH_WEEKDAYS[end.weekday()]} {end.day} {SWEDISH_MONTHS[end.month-1]}"
     if start == today:
         base = "Idag"
     elif start == today + timedelta(days=1):

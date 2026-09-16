@@ -44,3 +44,22 @@ def test_sport_repeats_are_not_collapsed_across_dates():
     a.category = b.category = "Sport"
     assert same_production(a, b) is False
     assert [e.id for e in collapse_productions([a, b])] == ["a", "b"]
+
+
+def test_generic_interval_alias_collapses_into_exact_staged_production():
+    calendar_run = event("range", "Den gudomliga komedin", "2026-09-12", venue="", event_type="Evenemang")
+    calendar_run.category = "Lokalt"
+    calendar_run.end_date = "2026-10-17"
+    performance = event("show", "Den gudomliga komedin", "2026-09-16")
+    performance.end_date = None
+    assert same_production(performance, calendar_run) is True
+    assert len(collapse_productions([performance, calendar_run])) == 1
+
+
+def test_generic_interval_does_not_collapse_non_staged_event():
+    a = event("a", "Fredagsmys", "2026-09-12", venue="", event_type="Evenemang")
+    b = event("b", "Fredagsmys", "2026-09-19", venue="", event_type="Evenemang")
+    a.category = b.category = "Lokalt"
+    a.end_date = "2026-10-17"
+    b.end_date = None
+    assert same_production(a, b) is False
