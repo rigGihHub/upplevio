@@ -35,5 +35,18 @@ def test_teater_calendar_keeps_separate_performance_dates():
     assert all(e.source_names==["Örebro Teater"] for e in rows)
 
 def test_teater_ignores_cta_text_as_event():
-    html="<h2>29 september 2026</h2><a href='/buy'>Köp biljett</a>"
+    html="""<h2>29 september 2026</h2>
+    <a href='/buy'>Köp biljett</a>
+    <a href='/kontakta-oss/'>Kontakta oss</a>"""
     assert parse_orebro_teater_calendar_html(html)==[]
+
+
+def test_teater_does_not_append_excerpt_to_production_title():
+    html="""<h2>16 september 2026</h2>
+    <a href='/forestallningar/den-gudomliga-komedin/' title='Den gudomliga komedin'>
+      <h4 class='event-title'>Den gudomliga komedin</h4>
+      <p class='excerpt'>En suggestiv och gripande gestaltning...</p>
+    </a>"""
+    rows = parse_orebro_teater_calendar_html(html)
+    assert len(rows) == 1
+    assert rows[0].title == "Den gudomliga komedin"

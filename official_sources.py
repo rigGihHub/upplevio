@@ -434,10 +434,17 @@ def parse_orebro_teater_calendar_html(html_text: str, *, today: date | None = No
         if not current_date:
             continue
         href=(node.get("href") or "").strip()
-        title=re.sub(r"\s+"," ",node.get_text(" ",strip=True)).strip()
+        title_node = node.select_one(".event-title")
+        # The production link also wraps an excerpt on the live site. Prefer its
+        # explicit title metadata so descriptive copy never becomes part of identity.
+        title = (node.get("title") or (title_node.get_text(" ", strip=True) if title_node else "") or node.get_text(" ", strip=True))
+        title=re.sub(r"\s+"," ",title).strip()
         if not href or not title or title.lower() in {"köp biljett","läs mer"}:
             continue
         absolute=urljoin(source.url,href)
+        if ("/forestallning" not in absolute.casefold()
+                or absolute.split("?", 1)[0].rstrip("/") == source.url.split("?", 1)[0].rstrip("/")):
+            continue
         event_key = f"{absolute}|{current_date}"
         if event_key in seen or "orebroteater.se" not in absolute:
             continue
