@@ -5,7 +5,7 @@ APP = (Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8
 
 
 def test_v080_removes_decorative_district_row_and_limits_quick_choices():
-    assert 'APP_VERSION = "0.88.0"' in APP
+    assert 'APP_VERSION = "0.89.0"' in APP
     assert "q1, q2, q3, q4 = st.columns(4)" in APP
     assert '"Nu & snart"' in APP
     assert '<div class="festival-district"><b>' not in APP

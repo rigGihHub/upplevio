@@ -49,7 +49,7 @@ from sources import load_events
 from ui_logic import DISCOVERY_DEFAULTS, compact_date_label, compact_location_label, date_matches, discovery_context_label, event_period_matches, price_label, price_matches
 from ui_performance import INITIAL_RESULT_LIMIT, RESULT_BATCH_SIZE, clamp_result_limit, event_id_signature, next_result_limit, remaining_result_count, result_filter_signature
 
-APP_VERSION = "0.88.0"
+APP_VERSION = "0.89.0"
 
 st.set_page_config(page_title="Upplevio", page_icon="✦", layout="wide")
 st.markdown(
@@ -359,12 +359,31 @@ h1,h2,h3,h4{color:var(--ink)}
 }
 
 @media(max-width:800px){
-  .block-container{padding-left:.75rem;padding-right:.75rem}
-  .hero{padding:17px 16px 15px;border-radius:22px}
-  .hero h1{font-size:2.35rem;max-width:100%}
-  .hero::before{width:220px;height:220px;right:-100px;top:-100px}
+  .block-container{padding:.25rem .7rem 3rem}
+  [data-testid="stToolbar"]{display:none!important}
+  [data-testid="stHeader"]{height:0!important;min-height:0!important;background:transparent!important}
+  .hero{padding:11px 13px 12px;border-radius:18px;margin:0 0 5px}
+  .eyebrow{font-size:.56rem;letter-spacing:.11em;padding:4px 7px}
+  .hero h1{font-size:1.85rem;line-height:.98;max-width:100%;margin:.45rem 0 .4rem}
+  .hero p{font-size:.86rem;line-height:1.35;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .hero-kicker,.future-marquee{display:none}
+  .hero::before{width:155px;height:155px;right:-76px;top:-82px;border-width:14px}
   .hero::after{display:none}
-  .future-marquee{font-size:.62rem;letter-spacing:.08em}
+  [data-testid="stRadio"]{margin-bottom:.1rem}
+  [data-testid="stRadio"]>div{width:100%;justify-content:space-around;padding:3px 5px}
+  [data-testid="stRadio"] label{font-size:.84rem}
+  .nightline{margin:4px 0 4px}.nightline-label{font-size:.59rem}
+  .st-key-quick_choices [data-testid="stHorizontalBlock"],
+  .st-key-core_filters [data-testid="stHorizontalBlock"]{
+    display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px 8px!important
+  }
+  .st-key-quick_choices [data-testid="stColumn"],
+  .st-key-core_filters [data-testid="stColumn"]{
+    width:100%!important;min-width:0!important;flex:unset!important
+  }
+  .st-key-quick_choices div[data-testid="stButton"] button{min-height:36px;padding:.25rem .45rem;font-size:.82rem}
+  .st-key-core_filters [data-testid="stSelectbox"]{margin-bottom:0}
+  .st-key-core_filters label{font-size:.76rem}
   .flowbox{padding:11px;border-radius:18px}
   .event-card{min-height:auto;padding:15px;border-radius:21px}
   .event-title{font-size:1.13rem;padding-right:42px}.quick-fact{font-size:.89rem}.source{white-space:normal}
@@ -733,35 +752,36 @@ if active_view == "Upptäck":
     if health_summary["has_public_warning"]:
         st.warning("Resultaten kan vara ofullständiga just nu. Någon datakälla behöver kontrolleras.")
     st.markdown('<div class="nightline"><span class="nightline-label">SNABBVAL</span></div>', unsafe_allow_html=True)
-    q1, q2, q3, q4 = st.columns(4)
-    _quick_buttons = [
-        (q1, "Nu & snart", "Go Now"),
-        (q2, "Ikväll", "Ikväll"),
-        (q3, "I helgen", "I helgen"),
-        (q4, "Gratis", "Gratis"),
-    ]
-    for _col, _label, _preset in _quick_buttons:
-        with _col:
-            if st.button(_label, key=f"nightline-{_preset}", use_container_width=True):
-                st.session_state["nightline_preset"] = _preset
-                if _preset == "Go Now":
-                    st.session_state["discover_when"] = "Idag"
-                    if st.session_state.get("discover_city", DISCOVERY_DEFAULTS["city"]) == "Hela Sverige":
-                        st.session_state["discover_city"] = DISCOVERY_DEFAULTS["city"]
-                    st.session_state["discover_radius"] = 50
-                elif _preset == "Last Minute":
-                    st.session_state["discover_when"] = "Idag"
-                elif _preset == "Ikväll":
-                    st.session_state["discover_when"] = "Idag"
-                elif _preset == "I helgen":
-                    st.session_state["discover_when"] = "I helgen"
-                elif _preset == "Gratis":
-                    st.session_state["discover_price"] = "Gratis"
-                elif _preset == "Nära vald stad":
-                    if st.session_state.get("discover_city", DISCOVERY_DEFAULTS["city"]) == "Hela Sverige":
-                        st.session_state["discover_city"] = DISCOVERY_DEFAULTS["city"]
-                    st.session_state["discover_radius"] = 25
-                st.rerun()
+    with st.container(key="quick_choices"):
+        q1, q2, q3, q4 = st.columns(4)
+        _quick_buttons = [
+            (q1, "Nu & snart", "Go Now"),
+            (q2, "Ikväll", "Ikväll"),
+            (q3, "I helgen", "I helgen"),
+            (q4, "Gratis", "Gratis"),
+        ]
+        for _col, _label, _preset in _quick_buttons:
+            with _col:
+                if st.button(_label, key=f"nightline-{_preset}", use_container_width=True):
+                    st.session_state["nightline_preset"] = _preset
+                    if _preset == "Go Now":
+                        st.session_state["discover_when"] = "Idag"
+                        if st.session_state.get("discover_city", DISCOVERY_DEFAULTS["city"]) == "Hela Sverige":
+                            st.session_state["discover_city"] = DISCOVERY_DEFAULTS["city"]
+                        st.session_state["discover_radius"] = 50
+                    elif _preset == "Last Minute":
+                        st.session_state["discover_when"] = "Idag"
+                    elif _preset == "Ikväll":
+                        st.session_state["discover_when"] = "Idag"
+                    elif _preset == "I helgen":
+                        st.session_state["discover_when"] = "I helgen"
+                    elif _preset == "Gratis":
+                        st.session_state["discover_price"] = "Gratis"
+                    elif _preset == "Nära vald stad":
+                        if st.session_state.get("discover_city", DISCOVERY_DEFAULTS["city"]) == "Hela Sverige":
+                            st.session_state["discover_city"] = DISCOVERY_DEFAULTS["city"]
+                        st.session_state["discover_radius"] = 25
+                    st.rerun()
     _active_preset = st.session_state.get("nightline_preset")
     if _active_preset:
         if _active_preset == "Go Now":
@@ -776,33 +796,34 @@ if active_view == "Upptäck":
     default_city = DISCOVERY_DEFAULTS["city"]
     if "discover_city" not in st.session_state:
         st.session_state["discover_city"] = default_city if default_city in city_choices else city_choices[0]
-    r1c1, r1c2, r1c3, r1c4 = st.columns(4)
-    with r1c1:
-        origin_city = st.selectbox("📍 Var?", city_choices, key="discover_city")
-    with r1c2:
-        when_choices = ["Idag", "I helgen", "Nästa 7 dagar", "Nästa 30 dagar", "Nästa 3 månader"]
-        if "discover_when" not in st.session_state:
-            st.session_state["discover_when"] = DISCOVERY_DEFAULTS["when"]
-        when = st.selectbox("📅 När?", when_choices, key="discover_when")
+    types = ["Alla"] + sorted({e.event_type for e in future_events})
+    with st.container(key="core_filters"):
+        r1c1, r1c2, r1c3, r1c4 = st.columns(4)
+        with r1c1:
+            origin_city = st.selectbox("📍 Var?", city_choices, key="discover_city")
+        with r1c2:
+            when_choices = ["Idag", "I helgen", "Nästa 7 dagar", "Nästa 30 dagar", "Nästa 3 månader"]
+            if "discover_when" not in st.session_state:
+                st.session_state["discover_when"] = DISCOVERY_DEFAULTS["when"]
+            when = st.selectbox("📅 När?", when_choices, key="discover_when")
 
-    with r1c3:
-        radius_choices = [25, 50, 100, 200, 300]
-        if "discover_radius" not in st.session_state:
-            st.session_state["discover_radius"] = DISCOVERY_DEFAULTS["radius_km"]
-        radius_km = st.selectbox("🚗 Hur långt?", radius_choices, key="discover_radius", disabled=(origin_city == "Hela Sverige"))
-    with r1c4:
-        price_choices = ["Alla priser", "Gratis", "Max 100 kr", "Max 250 kr", "Max 500 kr"]
-        if "discover_price" not in st.session_state:
-            st.session_state["discover_price"] = DISCOVERY_DEFAULTS["price"]
-        price_filter = st.selectbox("💰 Budget?", price_choices, key="discover_price")
+        with r1c3:
+            type_filter = st.selectbox("🎟️ Vad?", types, key="discover_type")
+        with r1c4:
+            radius_choices = [25, 50, 100, 200, 300]
+            if "discover_radius" not in st.session_state:
+                st.session_state["discover_radius"] = DISCOVERY_DEFAULTS["radius_km"]
+            radius_km = st.selectbox("🚗 Hur långt?", radius_choices, key="discover_radius", disabled=(origin_city == "Hela Sverige"))
 
     with st.expander("Fler val", expanded=False):
         f1, f2 = st.columns(2)
         with f1:
             query = st.text_input("Sök", placeholder="Artist, mässa, arena eller ort…")
         with f2:
-            types = ["Alla"] + sorted({e.event_type for e in future_events})
-            type_filter = st.selectbox("Typ", types)
+            price_choices = ["Alla priser", "Gratis", "Max 100 kr", "Max 250 kr", "Max 500 kr"]
+            if "discover_price" not in st.session_state:
+                st.session_state["discover_price"] = DISCOVERY_DEFAULTS["price"]
+            price_filter = st.selectbox("💰 Budget?", price_choices, key="discover_price")
         only_new = st.toggle("Endast nytt i Upplevio")
         interests = st.multiselect(
             "Intressen (valfritt)",
