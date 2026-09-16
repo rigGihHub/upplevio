@@ -16,6 +16,9 @@ class SourceHealthAssessment:
 # are allowed to be empty, while normal always-on calendars should be checked.
 SEASONAL_EMPTY_SOURCES = {"Lov Örebro"}
 NON_ERROR_STATES = {"OK", "Pilot", "Delvis", "Säsongstom", "Ej konfigurerad", "TESTLÄGE"}
+PUBLIC_DISCOVERY_CORE = {
+    "Conventum", "Örebro Teater", "City Örebro", "Tickster Örebro", "ÖSK Fotboll",
+}
 
 
 def safe_import_error(exc: Exception) -> str:
@@ -103,8 +106,14 @@ def source_health_summary(assessments: Sequence[SourceHealthAssessment]) -> dict
     for item in assessments:
         counts[item.state] += 1
     degraded = [x for x in assessments if x.state in {"Fel", "Kontrollera"}]
+    core = [x for x in assessments if x.source in PUBLIC_DISCOVERY_CORE]
+    degraded_core = [x for x in core if x.state in {"Fel", "Kontrollera"}]
+    healthy_core = [x for x in core if x.state not in {"Fel", "Kontrollera"} and x.imported > 0]
     return {
         "counts": dict(counts),
         "degraded": degraded,
-        "has_public_warning": any(x.state == "Fel" for x in degraded) or len(degraded) >= 2,
+        "degraded_core": degraded_core,
+        # Supplemental and long-tail failures remain visible in Admin. A public
+        # warning is reserved for broad discovery degradation, not one slow venue.
+        "has_public_warning": bool(core) and (not healthy_core or len(degraded_core) >= 3),
     }

@@ -21,11 +21,25 @@ def test_zero_active_source_is_flagged_but_seasonal_empty_is_not():
     assert report[1].state == "Säsongstom"
 
 
-def test_import_failure_triggers_public_warning():
-    report = assess_source_health([("Visit Sweden", "Fel", 0, "Importen misslyckades")], [])
+def test_single_supplemental_failure_stays_in_admin_without_public_warning():
+    report = assess_source_health([
+        ("Visit Sweden", "Fel", 0, "Importen misslyckades"),
+        ("Tickster Örebro", "OK", 12, "Publik lista"),
+    ], [event(source="Tickster Örebro")])
     summary = source_health_summary(report)
     assert report[0].state == "Fel"
-    assert summary["has_public_warning"] is True
+    assert summary["has_public_warning"] is False
+
+
+def test_multiple_core_failures_trigger_public_warning():
+    rows = [
+        ("Conventum", "Fel", 0, "Fel"),
+        ("Örebro Teater", "Fel", 0, "Fel"),
+        ("City Örebro", "Fel", 0, "Fel"),
+        ("Tickster Örebro", "OK", 12, "OK"),
+    ]
+    report = assess_source_health(rows, [event(source="Tickster Örebro")])
+    assert source_health_summary(report)["has_public_warning"] is True
 
 
 def test_many_missing_urls_flags_likely_parser_regression():
