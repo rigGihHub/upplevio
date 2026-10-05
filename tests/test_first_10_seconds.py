@@ -1,10 +1,10 @@
 from ui_logic import DISCOVERY_DEFAULTS, discovery_context_label
 
 
-def test_discovery_defaults_are_narrow_enough_to_feel_relevant():
+def test_discovery_defaults_show_a_month_of_local_events():
     assert DISCOVERY_DEFAULTS == {
         "city": "Örebro",
-        "when": "Nästa 7 dagar",
+        "when": "Nästa 30 dagar",
         "radius_km": 50,
         "price": "Alla priser",
     }

@@ -46,10 +46,10 @@ from tonight_mode import tonight_shortlist, tonight_remaining, tonight_summary
 from last_minute import last_minute_info, last_minute_match, last_minute_shortlist, last_minute_remaining
 from go_now import go_now_info, go_now_match, go_now_shortlist, go_now_remaining
 from sources import load_events
-from ui_logic import DISCOVERY_DEFAULTS, compact_date_label, compact_location_label, date_matches, discovery_context_label, event_period_matches, price_label, price_matches
+from ui_logic import DISCOVERY_DEFAULTS, clear_price_preset, clear_time_preset, compact_date_label, compact_location_label, date_matches, discovery_context_label, event_period_matches, local_today, price_label, price_matches
 from ui_performance import INITIAL_RESULT_LIMIT, RESULT_BATCH_SIZE, clamp_result_limit, event_id_signature, next_result_limit, remaining_result_count, result_filter_signature
 
-APP_VERSION = "0.89.0"
+APP_VERSION = "0.92.0"
 
 st.set_page_config(page_title="Upplevio", page_icon="✦", layout="wide")
 st.markdown(
@@ -486,7 +486,7 @@ def cached_prepare_events(raw_event_list, source_health_value):
 
 events, review_pairs, health_assessments = cached_prepare_events(raw_events, source_health)
 health_summary = source_health_summary(health_assessments)
-today = date.today()
+today = local_today()
 
 first_seen_before = event_first_seen_map()
 visible_ingestion_ids = [e.id for e in events if not e.is_demo]
@@ -730,7 +730,7 @@ def render_card_actions(e, *, surface: str):
         render_inline_details(e)
 
 
-future_events = [e for e in events if date.fromisoformat(e.end_date or e.start_date) >= today and not e.is_demo and not is_high_confidence_noise(e)]
+future_events = [e for e in events if event_period_matches(e, "Alla datum", today) and not e.is_demo and not is_high_confidence_noise(e)]
 fav_ids = favorite_ids()
 
 st.markdown(
@@ -791,6 +791,9 @@ if active_view == "Upptäck":
         else:
             _preset_note = ""
         st.markdown(f'<div class="nightline-help">Aktivt: <b>{safe(_active_preset)}</b>{safe(_preset_note)}</div>', unsafe_allow_html=True)
+        if st.button("Rensa snabbval", key="clear-nightline"):
+            st.session_state["nightline_preset"] = None
+            st.rerun()
 
     city_choices = ["Hela Sverige"] + sorted(CITY_COORDS.keys())
     default_city = DISCOVERY_DEFAULTS["city"]
@@ -805,7 +808,7 @@ if active_view == "Upptäck":
             when_choices = ["Idag", "I helgen", "Nästa 7 dagar", "Nästa 30 dagar", "Nästa 3 månader"]
             if "discover_when" not in st.session_state:
                 st.session_state["discover_when"] = DISCOVERY_DEFAULTS["when"]
-            when = st.selectbox("📅 När?", when_choices, key="discover_when")
+            when = st.selectbox("📅 När?", when_choices, key="discover_when", on_change=clear_time_preset, args=(st.session_state,))
 
         with r1c3:
             type_filter = st.selectbox("🎟️ Vad?", types, key="discover_type")
@@ -823,7 +826,7 @@ if active_view == "Upptäck":
             price_choices = ["Alla priser", "Gratis", "Max 100 kr", "Max 250 kr", "Max 500 kr"]
             if "discover_price" not in st.session_state:
                 st.session_state["discover_price"] = DISCOVERY_DEFAULTS["price"]
-            price_filter = st.selectbox("💰 Budget?", price_choices, key="discover_price")
+            price_filter = st.selectbox("💰 Budget?", price_choices, key="discover_price", on_change=clear_price_preset, args=(st.session_state,))
         only_new = st.toggle("Endast nytt i Upplevio")
         interests = st.multiselect(
             "Intressen (valfritt)",
@@ -832,9 +835,6 @@ if active_view == "Upptäck":
             placeholder="Musik, sport, familj…",
         )
         st.caption("Intressen påverkar bara sorteringen i den här sessionen. Event utanför dina val filtreras inte bort.")
-        if st.session_state.get("nightline_preset") and st.button("Rensa snabbval", key="clear-nightline"):
-            st.session_state["nightline_preset"] = None
-            st.rerun()
     def matches(e):
         d = event_dt(e)
         _preset = st.session_state.get("nightline_preset")

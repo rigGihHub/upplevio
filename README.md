@@ -1,14 +1,10 @@
-# Upplevio v0.80.0
-
-Latest release: Calm Discovery UI. See PRODUCT_V0800.md.
-
-# Upplevio v0.78.0
-
-Latest release: Discovery Layout & Production Collapse. See PRODUCT_V0780.md.
-
 # Upplevio
 
-Senaste release: **v0.25.0 – Top-result Ranking Quality**
+Senaste kodversion: **v0.92.0 – Pålitligare sökfilter**. Se [PRODUCT_V0920.md](PRODUCT_V0920.md).
+
+Öppna appen: https://upplevio.streamlit.app/
+
+Helgfiltret fungerar även på söndagar, datumbyten avslutar dolda tidssnabbval och budget i kronor jämförs endast med uttryckliga SEK-priser. Datum använder svensk lokal tid.
 
 **Upptäck mer. Upplev mer.**
 

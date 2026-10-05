@@ -6,6 +6,7 @@ import re
 
 from coverage import distance_from_city
 from discovery_data_quality import apply_discovery_quality_gate
+from ui_logic import event_period_matches, known_price_in_sek, local_today
 
 DEFAULT_INTERESTS = {
     "Rock", "Hårdrock/metal", "Teknik", "Samlarkort", "Sportkort", "Retro & nostalgi",
@@ -59,7 +60,7 @@ class DiscoveryRank:
 
 
 def _days_until(event, today=None):
-    today = today or date.today()
+    today = today or local_today()
     try:
         return (date.fromisoformat(event.start_date) - today).days
     except Exception:
@@ -186,7 +187,7 @@ def _price_points(event, price_filter: str) -> tuple[int, Optional[str]]:
         # Unknown price is neither cheap nor expensive. Do not fabricate value.
         return 0, None
 
-    low = getattr(event, "price_min", None)
+    low = known_price_in_sek(event)
     if low is None:
         return 0, None
     limit = PRICE_LIMITS.get(price_filter)
@@ -215,7 +216,7 @@ def discovery_rank(event, origin_city=None, price_filter="Alla priser", query=""
     Source confidence is intentionally capped as a small tie-breaker rather than a
     relevance signal. Missing price or geodata is never converted into favourable data.
     """
-    today = today or date.today()
+    today = today or local_today()
     score = 0
     reasons = []
 
@@ -386,12 +387,9 @@ def newly_announced(events, is_new_fn, limit=10):
     return sorted([e for e in events if is_new_fn(e)], key=lambda e: e.start_date)[:limit]
 
 
-def this_weekend(events):
-    today = date.today()
-    days_to_sat = (5 - today.weekday()) % 7
-    saturday = today + timedelta(days=days_to_sat)
-    sunday = saturday + timedelta(days=1)
-    return [e for e in events if e.start_date in (saturday.isoformat(), sunday.isoformat())]
+def this_weekend(events, today=None):
+    today = today or local_today()
+    return [e for e in events if event_period_matches(e, "I helgen", today)]
 
 
 def big_fairs(events, limit=10):

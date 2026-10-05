@@ -5,7 +5,6 @@ APP = (Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8
 
 
 def test_mobile_discovery_uses_compact_keyed_grids():
-    assert 'APP_VERSION = "0.89.0"' in APP
     assert 'st.container(key="quick_choices")' in APP
     assert 'st.container(key="core_filters")' in APP
     assert '.st-key-quick_choices [data-testid="stHorizontalBlock"]' in APP
