@@ -44,6 +44,18 @@ RULES = {
     ],
 }
 
+SPORT_RULES = {
+    "Badminton": [r"\bbadminton\b"], "Bandy": [r"\bbandy\b"],
+    "Bordtennis": [r"\bbordtennis\b", r"\btable tennis\b"],
+    "Motorsport": [r"\bmotorsport\b", r"\brally\b", r"\bspeedway\b", r"\bmotocross\b", r"\bgokart\b"],
+    "Orientering": [r"\borientering\b", r"\borienteering\b"],
+    "Ridsport": [r"\bridsport\b", r"\bdressyr\b", r"\bhästhoppning\b"],
+    "Kampsport": [r"\bkampsport\b", r"\bboxning\b", r"\bjudo\b", r"\bkarate\b", r"\btaekwondo\b", r"\bbrottning\b"],
+    "Curling": [r"\bcurling\b"], "Rugby": [r"\brugby\b"],
+    "Gymnastik": [r"\bgymnastik\b"], "Triathlon": [r"\btriathlon\b", r"\btriatlon\b"],
+    "Kajak": [r"\bkajak\b", r"\bkayak\b"], "Skridskor": [r"\bskridsko(?:r|åkning)\b", r"\bkonståkning\b"],
+}
+
 EVENT_TYPE_PRIORITY = [
     ("Stand-up", "Stand-up"), ("Teater", "Teater"), ("Musikal/show", "Show"),
     ("Dans", "Dans"), ("Konsert", "Konsert"), ("Sport", "Sport"),
@@ -59,6 +71,9 @@ def classify(title: str, description: str = "", existing_type: str = "Evenemang"
     for tag, patterns in RULES.items():
         if any(re.search(p, text, re.I) for p in patterns):
             tags.add(tag)
+    for tag, patterns in SPORT_RULES.items():
+        if any(re.search(p, text, re.I) for p in patterns):
+            tags.update({"Sport", tag})
 
     event_type = existing_type or "Evenemang"
     category = existing_category or "Okategoriserat"

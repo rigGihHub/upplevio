@@ -60,6 +60,7 @@ class Event:
     sponsor_audiences: List[str] = field(default_factory=list)
     sponsor_priority: int = 0
     booking_partner: Optional[str] = None
+    excluded_dates: List[str] = field(default_factory=list)
     booking_partner_key: Optional[str] = None
     booking_partner_domain: Optional[str] = None
     affiliate_status: str = "unassessed"

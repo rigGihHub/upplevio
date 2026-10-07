@@ -265,13 +265,26 @@ def visitsweden_events(page_size=100, max_pages=5):
         "truncated": truncated,
     }
 
-def load_events(api_key=None, include_visitsweden=True, include_conventum=True, include_visitorebro_editorial=True, include_orebro_sports=True, include_lov_orebro=True, include_city_orebro=True, include_orebro_culture=True, include_local_discovery=True, include_local_ticketing=True, experimental_official_keys=None, experimental_collector_keys=None, experimental_entertainment_keys=None, include_demo=False):
+def load_events(api_key=None, include_visitsweden=True, include_conventum=True, include_visitorebro_editorial=True, include_orebro_sports=True, include_lov_orebro=True, include_city_orebro=True, include_orebro_culture=True, include_local_discovery=True, include_local_ticketing=True, experimental_official_keys=None, experimental_collector_keys=None, experimental_entertainment_keys=None, include_demo=False, include_stockholm=True):
     """Load independent sources concurrently while isolating source failures."""
     from source_fetch import SourceTask, run_source_tasks
 
     events = []
     source_health = []
     tasks = []
+
+    if include_stockholm:
+        def fetch_stockholm():
+            from stockholm_sources import stockholm_events
+            rows, meta = stockholm_events()
+            status = "Delvis" if meta["truncated"] else "OK"
+            note = f'{meta["pages_fetched"]} API-sidor · Stockholm Business Region AB · CC BY 4.0'
+            if meta["truncated"]:
+                note += " · ofullständig import"
+            if meta.get("failed_pages"):
+                note += f' · {meta["failed_pages"]} sida/sidor kunde inte hämtas'
+            return rows, [("Visit Stockholm", status, len(rows), note)]
+        tasks.append(SourceTask("visitstockholm", "Visit Stockholm", fetch_stockholm))
 
     if api_key:
         def fetch_ticketmaster():
@@ -352,6 +365,14 @@ def load_events(api_key=None, include_visitsweden=True, include_conventum=True, 
         tasks.append(SourceTask("tickster_orebro", "Tickster Örebro", fetch_tickster_orebro))
 
     if include_orebro_sports:
+        def fetch_bandy():
+            from expanded_sports_sources import bandy_events
+            rows = bandy_events()
+            return rows, [("ÖSK Bandy", "OK", len(rows), "Offentlig biljettlista · matcher och cuper")]
+        def fetch_badminton():
+            from expanded_sports_sources import badminton_events
+            rows = badminton_events()
+            return rows, [("Örebro Badminton", "OK", len(rows), "Officiella matchartiklar med publik inbjudan")]
         def fetch_osk():
             from sports_sources import osk_events
             rows = osk_events()
@@ -364,6 +385,8 @@ def load_events(api_key=None, include_visitsweden=True, include_conventum=True, 
             from sports_sources import local_club_sport_events
             return local_club_sport_events()
         tasks.extend([
+            SourceTask("osk_bandy", "ÖSK Bandy", fetch_bandy),
+            SourceTask("orebro_badminton", "Örebro Badminton", fetch_badminton),
             SourceTask("osk", "ÖSK Fotboll", fetch_osk),
             SourceTask("orebro_hockey", "Örebro Hockey", fetch_orebro_hockey),
             SourceTask("local_club_sports", "Lokala sportklubbar", fetch_local_club_sports),

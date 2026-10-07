@@ -1,11 +1,14 @@
 import re
 import unicodedata
+from copy import copy
+from functools import lru_cache
 from difflib import SequenceMatcher
 from typing import Iterable
 
 from source_registry import SOURCES
 
 
+@lru_cache(maxsize=16384)
 def normalize_text(value: str):
     value = unicodedata.normalize("NFKD", value or "")
     value = "".join(ch for ch in value if not unicodedata.combining(ch))
@@ -47,6 +50,48 @@ def _same_external_record(a, b):
     return bool(_source_identity(a) & _source_identity(b))
 
 
+def _title_identity(event):
+    return _normalized_title(getattr(event, "title", "") or "")
+
+
+@lru_cache(maxsize=16384)
+def _normalized_title(title):
+    title = re.sub(r"stand[\s-]?up", "standup", title, flags=re.I)
+    title = re.sub(r"\bÖSK\b", "Örebro SK", title, flags=re.I)
+    title = re.sub(r"\s*(?:[-–]\s*|kl\.?\s*)\d{1,2}[:.]\d{2}\s*$", "", title, flags=re.I)
+    title = re.sub(r"\s*[-–]\s*extrainsatt matinéföreställning\s*$", "", title, flags=re.I)
+    return normalize_text(title)
+
+
+def _title_match(a, b, minimum=0.52):
+    ta, tb = _title_identity(a), _title_identity(b)
+    if not ta or not tb:
+        return 0.0
+    if ta == tb or set(ta.split()) == set(tb.split()):
+        return 1.0
+    # A distinctive production title may have a presenter credit in one source.
+    short, long = sorted((ta, tb), key=len)
+    if len(short) >= 12 and long.startswith(short + " med "):
+        return 1.0
+    token_score = _token_overlap(ta, tb)
+    sequence = SequenceMatcher(None, ta, tb)
+    if max(sequence.quick_ratio(), token_score) < minimum:
+        return 0.0
+    return max(sequence.ratio(), token_score)
+
+
+def _start_time(event):
+    value = getattr(event, "start_time", None) or ""
+    match = re.match(r"(\d{1,2}):(\d{2})", value)
+    if not match:
+        match = re.search(r"(?:kl\.?\s*|[-–]\s*)(\d{1,2})[:.](\d{2})\s*$", getattr(event, "title", ""), re.I)
+    return f"{int(match[1]):02d}:{match[2]}" if match else None
+
+
+def _is_sport(event):
+    return "sport" in normalize_text(" ".join([getattr(event, "event_type", ""), getattr(event, "category", "")])).split()
+
+
 def duplicate_score(a, b):
     """Conservative similarity score for two normalized Event objects.
 
@@ -54,23 +99,29 @@ def duplicate_score(a, b):
     treated as the same record. The score intentionally favors title + geography over
     looser metadata to avoid false merges.
     """
-    if _same_external_record(a, b):
-        return 1.0
     if a.start_date != b.start_date:
+        return 0.0
+    time_a, time_b = _start_time(a), _start_time(b)
+    if time_a and time_b and time_a != time_b:
         return 0.0
 
     city_a, city_b = normalize_text(a.city), normalize_text(b.city)
     if city_a and city_b and city_a != city_b:
         return 0.0
+    if _same_external_record(a, b):
+        return 1.0
 
-    title_seq = similarity(a.title, b.title)
-    title_tokens = _token_overlap(a.title, b.title)
-    title = max(title_seq, title_tokens)
+    title = _title_match(a, b)
+    # Similar team names are not evidence that two fixtures are the same match.
+    if (_is_sport(a) or _is_sport(b)) and _title_identity(a) != _title_identity(b):
+        return 0.0
 
     venue_a, venue_b = normalize_text(a.venue), normalize_text(b.venue)
     venue_same = bool(venue_a and venue_b and venue_a == venue_b)
     venue_sim = similarity(a.venue, b.venue) if venue_a and venue_b else 0.0
     city_same = bool(city_a and city_b and city_a == city_b)
+    if venue_a and venue_b and venue_a != city_a and venue_b != city_b and venue_sim < 0.70:
+        return 0.0
 
     # Very different titles should not be rescued solely by a shared venue/city.
     if title < 0.52:
@@ -87,7 +138,7 @@ def duplicate_score(a, b):
 
 def production_identity(event):
     """Normalized title identity used only to reduce repeated productions in discovery."""
-    return normalize_text(getattr(event, "title", ""))
+    return _title_identity(event)
 
 
 def _repeatable_production(event):
@@ -105,10 +156,15 @@ def _repeatable_production(event):
 
 def same_production(a, b):
     """True for repeated staged productions at a non-contradictory city/venue."""
+    city_a, city_b = normalize_text(getattr(a, "city", "")), normalize_text(getattr(b, "city", ""))
+    if city_a and city_b and city_a != city_b:
+        return False
     title_a, title_b = production_identity(a), production_identity(b)
     if not title_a or not title_b:
         return False
-    title_match = max(similarity(title_a, title_b), _token_overlap(title_a, title_b))
+    if _is_sport(a) or _is_sport(b):
+        return False
+    title_match = _title_match(a, b, minimum=0.92)
     if title_match < 0.92:
         return False
     repeatable_a, repeatable_b = _repeatable_production(a), _repeatable_production(b)
@@ -118,8 +174,6 @@ def same_production(a, b):
     # Broad calendars sometimes publish a generic date range while venue calendars
     # publish the individual staged performances. Treat the exact-title range only
     # as a presentation alias; underlying event deduplication remains untouched.
-    if not ((repeatable_a and repeatable_b) or (exact_title and ((repeatable_a and interval_b) or (repeatable_b and interval_a)))):
-        return False
     city_a, city_b = normalize_text(getattr(a, "city", "")), normalize_text(getattr(b, "city", ""))
     if city_a and city_b and city_a != city_b:
         return False
@@ -130,7 +184,11 @@ def same_production(a, b):
         venue_b = ""
     if venue_a and venue_b and similarity(venue_a, venue_b) < 0.82:
         return False
-    return True
+    staged = (repeatable_a and repeatable_b) or (exact_title and ((repeatable_a and interval_b) or (repeatable_b and interval_a)))
+    # Exhibitions, fairs and other recurring events also belong on one card when
+    # title and a specific venue agree. Preserve each occurrence for details.
+    shared_page = bool(getattr(a, "official_url", None) and getattr(a, "official_url", None) == getattr(b, "official_url", None) and "/events/" in getattr(a, "official_url", ""))
+    return staged or (exact_title and bool(city_a and city_a == city_b) and ((bool(venue_a and venue_b) and venue_a == venue_b) or shared_page))
 
 
 def collapse_productions(events):
@@ -139,7 +197,7 @@ def collapse_productions(events):
     for event in events:
         representative = next((existing for existing in collapsed if same_production(existing, event)), None)
         if representative is None:
-            representative = event
+            representative = copy(event)
             setattr(representative, "_alternate_dates", [])
             setattr(representative, "_alternate_events", [])
             collapsed.append(representative)
@@ -259,6 +317,11 @@ def merge_event(best, event):
     # Keep stable canonical identity from the first event; provenance records preserve
     # all source IDs. Fill gaps, and only replace descriptive fields with higher-trust data.
     best.title = _prefer_text(best.title, event.title, prefer_incoming and len(event.title or "") >= len(best.title or ""))
+    generic_types = {"", "Evenemang", "Event", "Okänt", "Okategoriserat"}
+    if best.event_type in generic_types and event.event_type not in generic_types:
+        best.event_type = event.event_type
+    if best.category in generic_types | {"Lokalt"} and event.category not in generic_types:
+        best.category = event.category
     best.venue = _prefer_text(best.venue, event.venue, prefer_incoming)
     best.city = _prefer_text(best.city, event.city, prefer_incoming)
     best.region = _prefer_text(best.region, event.region, prefer_incoming)

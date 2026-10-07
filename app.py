@@ -10,7 +10,7 @@ from coverage import coverage_snapshot
 from benchmark import benchmark_report, benchmark_sample_quality, load_benchmark
 from geography import CITY_COORDS, distance_from_city, distance_info
 from db import event_first_seen_map, favorite_ids, record_event_sightings, toggle_favorite
-from dedupe import collapse_productions, deduplicate, verification_label
+from dedupe import collapse_productions, deduplicate, same_production, verification_label
 from discovery import INTEREST_PROFILES, event_matches_query, rank_discovery
 from discovery_quality import discovery_quality_report
 from discovery_data_quality import discovery_data_quality_report
@@ -49,7 +49,7 @@ from sources import load_events
 from ui_logic import DISCOVERY_DEFAULTS, clear_price_preset, clear_time_preset, compact_date_label, compact_location_label, date_matches, discovery_context_label, event_period_matches, local_today, price_label, price_matches
 from ui_performance import INITIAL_RESULT_LIMIT, RESULT_BATCH_SIZE, clamp_result_limit, event_id_signature, next_result_limit, remaining_result_count, result_filter_signature
 
-APP_VERSION = "0.92.0"
+APP_VERSION = "0.93.0"
 
 st.set_page_config(page_title="Upplevio", page_icon="✦", layout="wide")
 st.markdown(
@@ -650,7 +650,7 @@ def render_inline_details(e):
     if alternate_events:
         alternate_labels = [compact_date_label(item, today) for item in alternate_events]
         alternate_dates_markup = (
-            '<div class="alternate-dates"><b>Fler datum</b><br>'
+            '<div class="alternate-dates"><b>Fler datum och tider</b><br>'
             + "<br>".join(safe(label) for label in alternate_labels)
             + "</div>"
         )
@@ -667,6 +667,8 @@ def render_inline_details(e):
     )
     cta = booking_cta(e)
     info_url = primary_info_target(e)
+    if "Visit Stockholm" in (e.source_names or []):
+        st.markdown("Eventdata: [Stockholm Business Region AB](https://www.visitstockholm.com/) · [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · Normaliserat av Upplevio")
     if cta:
         _cta_url = cta.url
         if cta.track_as_booking:
@@ -676,6 +678,13 @@ def render_inline_details(e):
         st.link_button(cta.label, _cta_url, use_container_width=True)
     if info_url and (not cta or info_url != cta.url):
         st.link_button("Officiell sida", info_url, use_container_width=True)
+    for alternative in alternate_events:
+        target = booking_cta(alternative)
+        destination = target.url if target else primary_info_target(alternative)
+        if destination and destination != (cta.url if cta else info_url):
+            if target and target.track_as_booking:
+                destination = build_tracked_url(event=alternative, destination_url=destination, public_base_url=public_base_url, secret=redirect_secret)
+            st.link_button(f"{compact_date_label(alternative, today)} · {target.label if target else 'Officiell sida'}", destination, use_container_width=True)
 
 
 def render_measured_details(e, *, surface: str):
@@ -888,8 +897,9 @@ if active_view == "Upptäck":
             st.markdown('<div class="section-title">Nära alternativ</div>', unsafe_allow_html=True)
             st.caption("Dina val ovan ändras inte. Här visas vad som blir möjligt om du lättar på ett tydligt filter i taget.")
             shown_fallback_ids = set()
+            shown_fallback_events = []
             for suggestion in fallback_suggestions:
-                fresh_events = [e for e in suggestion.events if e.id not in shown_fallback_ids]
+                fresh_events = collapse_productions([e for e in suggestion.events if e.id not in shown_fallback_ids and not any(same_production(e, shown) for shown in shown_fallback_events)])
                 if not fresh_events:
                     continue
                 st.markdown(f"**{suggestion.title}**")
@@ -897,13 +907,14 @@ if active_view == "Upptäck":
                 cols = st.columns(min(2, len(fresh_events)))
                 for i, e in enumerate(fresh_events):
                     shown_fallback_ids.add(e.id)
+                    shown_fallback_events.append(e)
                     with cols[i % len(cols)]:
                         st.markdown(card_markup(e, origin_city), unsafe_allow_html=True)
         else:
             st.caption("Upplevio hittar inga nära alternativ utan att ändra sökningen mer än rimligt. Prova att ta bort sökord eller eventtyp om du vill bredda ytterligare.")
     else:
         st.markdown('<div class="section-title">✦ På scen för dig</div>', unsafe_allow_html=True)
-        st.caption("En produktion per kort. Fler föreställningsdatum samlas på samma kort; NY och GRATIS markeras direkt.")
+        st.caption("Återkommande evenemang samlas på ett kort med fler datum och tider i detaljerna. Matcher visas var för sig.")
         filter_signature = result_filter_signature(
             origin_city=origin_city, when=when, radius_km=None if origin_city == "Hela Sverige" else radius_km,
             price_filter=price_filter, query=query, type_filter=type_filter, only_new=only_new, interests=interests,
@@ -1050,7 +1061,7 @@ if active_view == "Upptäck":
                 st.rerun()
 
 elif active_view == "Sparat":
-    saved = sorted([e for e in future_events if e.id in fav_ids], key=event_dt)
+    saved = collapse_productions(sorted([e for e in future_events if e.id in fav_ids], key=event_dt))
     st.markdown('<div class="section-title">Sparade event</div>', unsafe_allow_html=True)
     if not saved:
         st.info("Du har inte sparat några event ännu.")

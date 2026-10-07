@@ -1,10 +1,10 @@
 # Upplevio
 
-Senaste kodversion: **v0.92.0 – Pålitligare sökfilter**. Se [PRODUCT_V0920.md](PRODUCT_V0920.md).
+Senaste kodversion: **v0.93.0 – Färre dubbletter och bredare utbud**. Se [PRODUCT_V0930.md](PRODUCT_V0930.md).
 
 Öppna appen: https://upplevio.streamlit.app/
 
-Helgfiltret fungerar även på söndagar, datumbyten avslutar dolda tidssnabbval och budget i kronor jämförs endast med uttryckliga SEK-priser. Datum använder svensk lokal tid.
+Samma evenemang från flera källor samlas på ett kort, med skydd för separata matcher och starttider. Ny import från Visit Stockholms publika API, ÖSK Bandys biljettkalender och Örebro Badmintons publika matchartiklar. Okända priser förblir okända.
 
 **Upptäck mer. Upplev mer.**
 

@@ -69,7 +69,18 @@ def event_period_matches(event, preset: str, today: date) -> bool:
     except Exception: end = start
     end = max(start, end)
     window_start, window_end = date_window(preset, today)
-    return start <= window_end and end >= window_start
+    overlap_start, overlap_end = max(start, window_start), min(end, window_end)
+    if overlap_start > overlap_end:
+        return False
+    excluded = {d for raw in getattr(event, "excluded_dates", []) if isinstance(raw, str) and (d := _valid_date(raw)) and overlap_start <= d <= overlap_end}
+    return (overlap_end - overlap_start).days + 1 > len(excluded)
+
+
+def _valid_date(raw):
+    try:
+        return date.fromisoformat(raw)
+    except (ValueError, TypeError):
+        return None
 
 
 def clear_time_preset(state):
