@@ -67,3 +67,18 @@ def test_same_day_performances_keep_both_times_in_one_card():
     cards = collapse_productions([a, b])
     assert len(cards) == 1
     assert cards[0]._alternate_events[0].start_time == '19:00'
+
+
+def test_theatre_building_and_specific_stage_share_one_production_card():
+    a = event('a', 'Den gudomliga komedin', '2026-10-07', venue='Örebro Teater')
+    b = event('b', 'Den gudomliga komedin', '2026-10-08', venue='Örebro Teater, Stora scenen')
+    assert len(collapse_productions([a, b])) == 1
+    b.start_date = a.start_date
+    assert duplicate_score(a, b) >= 0.88
+
+
+def test_explicitly_different_stages_are_not_venue_aliases():
+    a = event('a', 'Den gudomliga komedin', '2026-10-07', venue='Örebro Teater, Stora scenen')
+    b = event('b', 'Den gudomliga komedin', '2026-10-07', venue='Örebro Teater, Lilla scenen')
+    assert duplicate_score(a, b) == 0
+    assert len(collapse_productions([a, b])) == 2

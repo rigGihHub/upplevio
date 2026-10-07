@@ -92,6 +92,20 @@ def _is_sport(event):
     return "sport" in normalize_text(" ".join([getattr(event, "event_type", ""), getattr(event, "category", "")])).split()
 
 
+def _venue_similarity(a, b):
+    va, vb = normalize_text(a), normalize_text(b)
+    rooms = ("stora scenen", "lilla scenen", "foajen", "konsertsalen", "arena", "kongress")
+    room_a = next((room for room in rooms if va.endswith(" " + room)), None)
+    room_b = next((room for room in rooms if vb.endswith(" " + room)), None)
+    if room_a and room_b and room_a != room_b:
+        return 0.0
+    short, long = sorted((va, vb), key=len)
+    # Some calendars specify the building, others the room inside it.
+    if short and long.startswith(short + " ") and long[len(short) + 1:] in rooms:
+        return 1.0
+    return similarity(va, vb)
+
+
 def duplicate_score(a, b):
     """Conservative similarity score for two normalized Event objects.
 
@@ -118,7 +132,8 @@ def duplicate_score(a, b):
 
     venue_a, venue_b = normalize_text(a.venue), normalize_text(b.venue)
     venue_same = bool(venue_a and venue_b and venue_a == venue_b)
-    venue_sim = similarity(a.venue, b.venue) if venue_a and venue_b else 0.0
+    venue_sim = _venue_similarity(a.venue, b.venue) if venue_a and venue_b else 0.0
+    venue_same = venue_same or venue_sim == 1.0
     city_same = bool(city_a and city_b and city_a == city_b)
     if venue_a and venue_b and venue_a != city_a and venue_b != city_b and venue_sim < 0.70:
         return 0.0
@@ -182,7 +197,7 @@ def same_production(a, b):
         venue_a = ""
     if venue_b and venue_b == city_b:
         venue_b = ""
-    if venue_a and venue_b and similarity(venue_a, venue_b) < 0.82:
+    if venue_a and venue_b and _venue_similarity(venue_a, venue_b) < 0.82:
         return False
     staged = (repeatable_a and repeatable_b) or (exact_title and ((repeatable_a and interval_b) or (repeatable_b and interval_a)))
     # Exhibitions, fairs and other recurring events also belong on one card when

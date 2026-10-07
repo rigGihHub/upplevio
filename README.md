@@ -1,6 +1,6 @@
 # Upplevio
 
-Senaste kodversion: **v0.93.1 – Färre dubbletter och bredare utbud**. Se [PRODUCT_V0930.md](PRODUCT_V0930.md).
+Senaste kodversion: **v0.93.2 – Färre dubbletter och bredare utbud**. Se [PRODUCT_V0930.md](PRODUCT_V0930.md).
 
 Öppna appen: https://upplevio.streamlit.app/
 

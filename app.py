@@ -51,7 +51,7 @@ from sources import load_events
 from ui_logic import DISCOVERY_DEFAULTS, clear_price_preset, clear_time_preset, compact_date_label, compact_location_label, date_matches, discovery_context_label, event_period_matches, local_today, price_label, price_matches
 from ui_performance import INITIAL_RESULT_LIMIT, RESULT_BATCH_SIZE, clamp_result_limit, event_id_signature, next_result_limit, remaining_result_count, result_filter_signature
 
-APP_VERSION = "0.93.1"
+APP_VERSION = "0.93.2"
 
 st.set_page_config(page_title="Upplevio", page_icon="✦", layout="wide")
 st.markdown(
@@ -481,7 +481,8 @@ with st.spinner("Hämtar aktuella evenemang…"):
 raw_events = [event_from_payload(payload) for payload in raw_payloads]
 
 @st.cache_data(ttl=900, show_spinner=False)
-def cached_prepare_events(raw_event_payloads, source_health_value):
+def cached_prepare_events(raw_event_payloads, source_health_value, preparation_version):
+    del preparation_version
     raw_event_list = [event_from_payload(payload) for payload in raw_event_payloads]
     prepared_events, prepared_review_pairs = deduplicate(raw_event_list)
     apply_booking_partner_attribution(prepared_events)
@@ -493,7 +494,7 @@ def cached_prepare_events(raw_event_payloads, source_health_value):
     )
 
 
-event_payloads, review_payloads, health_payloads = cached_prepare_events(raw_payloads, source_health)
+event_payloads, review_payloads, health_payloads = cached_prepare_events(raw_payloads, source_health, APP_VERSION)
 events = [event_from_payload(payload) for payload in event_payloads]
 review_pairs = [(event_from_payload(a), event_from_payload(b), score) for a, b, score in review_payloads]
 health_assessments = [SourceHealthAssessment(**payload) for payload in health_payloads]
