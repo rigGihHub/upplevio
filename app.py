@@ -1,5 +1,6 @@
 import html
 import os
+from dataclasses import asdict
 from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
@@ -16,7 +17,8 @@ from discovery_quality import discovery_quality_report
 from discovery_data_quality import discovery_data_quality_report
 from fallback_discovery import build_fallback_suggestions
 from source_registry import SOURCES
-from source_health import assess_source_health, source_health_summary
+from source_health import SourceHealthAssessment, assess_source_health, source_health_summary
+from event_serialization import event_from_payload, event_to_payload
 from source_value import source_value_report
 from local_source_audit import local_source_audit
 from detail_coverage import detail_coverage_audit
@@ -49,7 +51,7 @@ from sources import load_events
 from ui_logic import DISCOVERY_DEFAULTS, clear_price_preset, clear_time_preset, compact_date_label, compact_location_label, date_matches, discovery_context_label, event_period_matches, local_today, price_label, price_matches
 from ui_performance import INITIAL_RESULT_LIMIT, RESULT_BATCH_SIZE, clamp_result_limit, event_id_signature, next_result_limit, remaining_result_count, result_filter_signature
 
-APP_VERSION = "0.93.0"
+APP_VERSION = "0.93.1"
 
 st.set_page_config(page_title="Upplevio", page_icon="✦", layout="wide")
 st.markdown(
@@ -455,7 +457,7 @@ def cached_load_events(api_key_value, official_keys, collector_source_keys, ente
     # Invalidate transitive source changes immediately on deploy. Streamlit hashes
     # this wrapper, but cannot see that an imported source adapter changed.
     del source_cache_version
-    return load_events(
+    loaded_events, loaded_health = load_events(
         api_key_value,
         include_visitsweden=True,
         include_conventum=True,
@@ -464,10 +466,11 @@ def cached_load_events(api_key_value, official_keys, collector_source_keys, ente
         experimental_entertainment_keys=list(entertainment_source_keys),
         include_demo=include_demo_value,
     )
+    return [event_to_payload(event) for event in loaded_events], loaded_health
 
 
 with st.spinner("Hämtar aktuella evenemang…"):
-    raw_events, source_health = cached_load_events(
+    raw_payloads, source_health = cached_load_events(
         api_key,
         tuple(experimental_keys),
         tuple(collector_keys),
@@ -475,16 +478,25 @@ with st.spinner("Hämtar aktuella evenemang…"):
         demo_mode,
         APP_VERSION,
     )
+raw_events = [event_from_payload(payload) for payload in raw_payloads]
 
 @st.cache_data(ttl=900, show_spinner=False)
-def cached_prepare_events(raw_event_list, source_health_value):
+def cached_prepare_events(raw_event_payloads, source_health_value):
+    raw_event_list = [event_from_payload(payload) for payload in raw_event_payloads]
     prepared_events, prepared_review_pairs = deduplicate(raw_event_list)
     apply_booking_partner_attribution(prepared_events)
     prepared_health = assess_source_health(source_health_value, raw_event_list)
-    return prepared_events, prepared_review_pairs, prepared_health
+    return (
+        [event_to_payload(event) for event in prepared_events],
+        [(event_to_payload(a), event_to_payload(b), score) for a, b, score in prepared_review_pairs],
+        [asdict(assessment) for assessment in prepared_health],
+    )
 
 
-events, review_pairs, health_assessments = cached_prepare_events(raw_events, source_health)
+event_payloads, review_payloads, health_payloads = cached_prepare_events(raw_payloads, source_health)
+events = [event_from_payload(payload) for payload in event_payloads]
+review_pairs = [(event_from_payload(a), event_from_payload(b), score) for a, b, score in review_payloads]
+health_assessments = [SourceHealthAssessment(**payload) for payload in health_payloads]
 health_summary = source_health_summary(health_assessments)
 today = local_today()
 

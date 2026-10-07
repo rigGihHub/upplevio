@@ -45,6 +45,16 @@ def test_stockholm_invalid_dates_and_unsafe_urls_are_rejected():
     assert parse_stockholm_event(raw) == []
 
 
+def test_stockholm_ongoing_range_identity_survives_api_start_date_advancing():
+    raw = stockholm_raw()
+    raw['schedule'] = {'range': {'start': '2026-10-07', 'end': '2026-12-31', 'excluded': []}, 'dates': []}
+    before = parse_stockholm_event(raw)[0]
+    raw['schedule']['range']['start'] = '2026-10-08'
+    after = parse_stockholm_event(raw)[0]
+    assert before.id == after.id
+    assert before.source_records[0].external_id == after.source_records[0].external_id
+
+
 def test_stockholm_paginates_integer_next_and_does_not_follow_foreign_url(monkeypatch):
     monkeypatch.setattr('ui_logic.local_today', lambda: date(2026, 10, 7))
     one, two = stockholm_raw(), stockholm_raw()

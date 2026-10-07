@@ -1,4 +1,4 @@
-# Upplevio v0.93.0 – Färre dubbletter och bredare utbud
+# Upplevio v0.93.1 – Färre dubbletter och bredare utbud
 
 Samma evenemang kunde visas flera gånger när källorna skrev titeln olika, utelämnade arena eller lade till en presentatör eller starttid i titeln. Matchningen hanterar nu dessa varianter, bland annat ÖSK/Örebro SK och stand-up/standup. Motstridiga datum, klockslag och specifika arenor blockerar sammanslagning. Snarlika motståndarnamn räcker aldrig för att slå ihop sportmatcher. En mer specifik sportklassificering bevaras vid sammanslagningen.
 
@@ -14,8 +14,12 @@ Taxonomin identifierar även badminton, bordtennis, orientering, ridsport, motor
 
 ## Validering
 
-419 automatiska tester passerar, inklusive regressioner för de observerade dubblettfallen, skilda starttider och motståndare, oförändrade importerade objekt, API-paginering, sidfel, stängda dagar och skillnaden mellan publiceringsdatum och matchdatum. Kontroller mot verkliga källsidor den 7 oktober 2026 gav 14 bandyevenemang, tre badmintonmatcher och 1 717 kommande tillfällen från Visit Stockholm på åtta API-sidor (779 kalenderposter). I Örebros 30-dagarsfönster gav den kontrollerade importen 57 kort efter gruppering. Dessa antal är en ögonblicksbild, inte en garanti för framtida tillgänglighet eller fullständig marknadstäckning.
+422 automatiska tester passerar, inklusive regressioner för de observerade dubblettfallen, skilda starttider och motståndare, oförändrade importerade objekt, API-paginering, sidfel, stängda dagar och skillnaden mellan publiceringsdatum och matchdatum. Kontroller mot verkliga källsidor den 7 oktober 2026 gav 14 bandyevenemang, tre badmintonmatcher och 1 717 kommande tillfällen från Visit Stockholm på åtta API-sidor (779 kalenderposter). I Örebros 30-dagarsfönster gav den kontrollerade importen 57 kort efter gruppering. Dessa antal är en ögonblicksbild, inte en garanti för framtida tillgänglighet eller fullständig marknadstäckning.
 
 Källdokumentation: https://api.visitstockholm.com/documentation/
 Bandy: https://orebroskbandy.ticketco.events/se/sv
 Badminton: https://www.orebrobadminton.com/
+
+## Korrigering vid livekontroll
+
+Livekontrollen fångade ett Streamlit-cachefel när dataklassmodulen laddades om men tidigare importerade källor fortfarande returnerade objekt från den gamla klassen. Båda cachegränserna använder nu vanliga datamappningar och återskapar aktuella event- och källobjekt utanför cachen. Ett regressionstest reproducerar det verkliga pickle-felet via modulomladdning och verifierar återställning med källproveniens. Identiteten för pågående API-datumintervall hålls också stabil när källan flyttar startdatum till nästa dag, så att sparade event behålls.

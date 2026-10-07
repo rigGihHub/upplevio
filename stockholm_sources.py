@@ -77,6 +77,7 @@ def parse_stockholm_event(raw):
     description = BeautifulSoup(_localized(raw.get("description")), "html.parser").get_text(" ", strip=True)
     schedule = raw.get("schedule")
     occurrences = []
+    ranges = []
     if isinstance(schedule, dict):
         span = schedule.get("range")
         if isinstance(span, dict):
@@ -103,7 +104,10 @@ def parse_stockholm_event(raw):
     now = datetime.now(timezone.utc).isoformat()
     result, seen = [], set()
     for start, end, clock, end_clock, excluded in occurrences:
-        occurrence_id = f"{external_id}:{start}:{end}:{clock or ''}"
+        # Ongoing ranges move their start to today's date in the API. Keep the
+        # identity stable so saved events and first-seen dates survive tomorrow.
+        is_range = (start, end, clock, end_clock, excluded) in ranges
+        occurrence_id = f"{external_id}:range" if is_range else f"{external_id}:{start}:{clock or ''}"
         if occurrence_id in seen:
             continue
         seen.add(occurrence_id)
