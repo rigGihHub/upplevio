@@ -19,6 +19,7 @@ from fallback_discovery import build_fallback_suggestions
 from source_registry import SOURCES
 from source_health import SourceHealthAssessment, assess_source_health, source_health_summary
 from event_serialization import event_from_payload, event_to_payload
+from sport_scope import sport_allowed_in_discovery
 from source_value import source_value_report
 from local_source_audit import local_source_audit
 from detail_coverage import detail_coverage_audit
@@ -51,7 +52,7 @@ from sources import load_events
 from ui_logic import DISCOVERY_DEFAULTS, clear_price_preset, clear_time_preset, compact_date_label, compact_location_label, date_matches, discovery_context_label, event_period_matches, local_today, price_label, price_matches
 from ui_performance import INITIAL_RESULT_LIMIT, RESULT_BATCH_SIZE, clamp_result_limit, event_id_signature, next_result_limit, remaining_result_count, result_filter_signature
 
-APP_VERSION = "0.93.2"
+APP_VERSION = "0.94.0"
 
 st.set_page_config(page_title="Upplevio", page_icon="✦", layout="wide")
 st.markdown(
@@ -752,7 +753,7 @@ def render_card_actions(e, *, surface: str):
         render_inline_details(e)
 
 
-future_events = [e for e in events if event_period_matches(e, "Alla datum", today) and not e.is_demo and not is_high_confidence_noise(e)]
+future_events = [e for e in events if event_period_matches(e, "Alla datum", today) and not e.is_demo and not is_high_confidence_noise(e) and sport_allowed_in_discovery(e)]
 fav_ids = favorite_ids()
 
 st.markdown(
@@ -888,8 +889,8 @@ if active_view == "Upptäck":
 
     context_text = discovery_context_label(origin_city, when, None if origin_city == "Hela Sverige" else radius_km, price_filter)
     st.markdown(f'<div class="result-summary"><b>{len(filtered)}</b> event · {safe(context_text)}</div>', unsafe_allow_html=True)
-    if type_filter == "Sport" and origin_city == "Örebro":
-        st.caption("Sport bevakas från officiella klubbkällor för fotboll, ishockey, basket, handboll, volleyboll, innebandy och amerikansk fotboll. Mindre serier och ungdomslag kan fortfarande saknas.")
+    if type_filter == "Sport":
+        st.caption("Sportutbudet visar endast lagsporter, till exempel fotboll, ishockey, bandy, basket, handboll, volleyboll och innebandy.")
 
     if not filtered:
         st.info("Inga event matchar exakt de här valen.")

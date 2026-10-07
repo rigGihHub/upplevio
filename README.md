@@ -1,10 +1,10 @@
 # Upplevio
 
-Senaste kodversion: **v0.93.2 – Färre dubbletter och bredare utbud**. Se [PRODUCT_V0930.md](PRODUCT_V0930.md).
+Senaste kodversion: **v0.94.0 – Sportutbud med endast lagsporter**. Se [PRODUCT_V0940.md](PRODUCT_V0940.md).
 
 Öppna appen: https://upplevio.streamlit.app/
 
-Samma evenemang från flera källor samlas på ett kort, med skydd för separata matcher och starttider. Ny import från Visit Stockholms publika API, ÖSK Bandys biljettkalender och Örebro Badmintons publika matchartiklar. Okända priser förblir okända.
+Samma evenemang från flera källor samlas på ett kort, med skydd för separata matcher och starttider. Sportutbudet visar endast identifierade lagsporter. Badmintonimporten är avstängd. Visit Stockholm och ÖSK Bandy fortsätter att bidra med relevanta evenemang. Okända priser förblir okända.
 
 **Upptäck mer. Upplev mer.**
 

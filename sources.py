@@ -369,10 +369,6 @@ def load_events(api_key=None, include_visitsweden=True, include_conventum=True, 
             from expanded_sports_sources import bandy_events
             rows = bandy_events()
             return rows, [("ÖSK Bandy", "OK", len(rows), "Offentlig biljettlista · matcher och cuper")]
-        def fetch_badminton():
-            from expanded_sports_sources import badminton_events
-            rows = badminton_events()
-            return rows, [("Örebro Badminton", "OK", len(rows), "Officiella matchartiklar med publik inbjudan")]
         def fetch_osk():
             from sports_sources import osk_events
             rows = osk_events()
@@ -386,7 +382,6 @@ def load_events(api_key=None, include_visitsweden=True, include_conventum=True, 
             return local_club_sport_events()
         tasks.extend([
             SourceTask("osk_bandy", "ÖSK Bandy", fetch_bandy),
-            SourceTask("orebro_badminton", "Örebro Badminton", fetch_badminton),
             SourceTask("osk", "ÖSK Fotboll", fetch_osk),
             SourceTask("orebro_hockey", "Örebro Hockey", fetch_orebro_hockey),
             SourceTask("local_club_sports", "Lokala sportklubbar", fetch_local_club_sports),
