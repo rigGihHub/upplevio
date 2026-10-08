@@ -1,6 +1,6 @@
 # Upplevio
 
-Senaste kodversion: **v0.94.0 – Sportutbud med endast lagsporter**. Se [PRODUCT_V0940.md](PRODUCT_V0940.md).
+Senaste kodversion: **v0.94.1 – Rättad rendering av evenemangsdetaljer**. Se [PRODUCT_V0941.md](PRODUCT_V0941.md).
 
 Öppna appen: https://upplevio.streamlit.app/
 

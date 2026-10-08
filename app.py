@@ -52,7 +52,7 @@ from sources import load_events
 from ui_logic import DISCOVERY_DEFAULTS, clear_price_preset, clear_time_preset, compact_date_label, compact_location_label, date_matches, discovery_context_label, event_period_matches, local_today, price_label, price_matches
 from ui_performance import INITIAL_RESULT_LIMIT, RESULT_BATCH_SIZE, clamp_result_limit, event_id_signature, next_result_limit, remaining_result_count, result_filter_signature
 
-APP_VERSION = "0.94.0"
+APP_VERSION = "0.94.1"
 
 st.set_page_config(page_title="Upplevio", page_icon="✦", layout="wide")
 st.markdown(
@@ -668,7 +668,9 @@ def render_inline_details(e):
             + "<br>".join(safe(label) for label in alternate_labels)
             + "</div>"
         )
-    st.markdown(
+    # Details contain HTML only. Markdown can turn optional blank lines followed
+    # by indentation into a code block, exposing markup instead of event details.
+    st.html(
         f"""<div class="inline-detail"><b>{safe(date_text)}</b><br>
         {safe(e.venue or "Plats ej angiven")}{safe((", " + e.city) if e.city else "")}<br>
         <b>{safe(price_label(e))}</b><br>
@@ -677,7 +679,6 @@ def render_inline_details(e):
         <span class="detail-trust">{safe(verification_label(e))} · {safe(", ".join(e.source_names))}</span>
         {alternate_dates_markup}
         {f'<p>{safe(e.description)}</p>' if e.description else ''}</div>""",
-        unsafe_allow_html=True,
     )
     cta = booking_cta(e)
     info_url = primary_info_target(e)
